@@ -146,7 +146,7 @@ namespace Gui {
             this.SetStyle(ControlStyles.UserPaint, true);
             this.Name = "gridbox";
             this.DefaultBackgroundColor = Color.White;
-            // For now, SelectedColor will default to Color.Blue
+            // For now, SelectedColor will default to Color.Blue for testing purposes
             this.SelectedColor = Color.Blue;
         }
 #endregion
@@ -246,7 +246,6 @@ namespace Gui {
                  * BackColor property, or the GridBox object's DefaultBackgroundColor property. */
                 Square squareObj = GetSquare(clipRectangle.X, clipRectangle.Y);
                 if (squareObj != null) {
-                    Console.WriteLine("Redrawing square at: {0}", squareObj.AreaRectangle.ToString());
                     SolidBrush paintBrush;
                     if (squareObj.MouseEvent == MouseEventType.Enter) {
                         // Enter
@@ -254,9 +253,9 @@ namespace Gui {
                     }
                     else {
                         // Leave
-                        Console.WriteLine("Leave event detected.");
                         paintBrush = new SolidBrush(squareObj.BackColor);
                     }
+                    // Fill the rectangle with the specified colour
                     graphicsObj.FillRectangle(paintBrush, squareObj.AreaRectangle);
                 }
             }
@@ -264,8 +263,13 @@ namespace Gui {
 #endregion
 #region MouseEventHandlers
         protected override void OnMouseMove(MouseEventArgs e) {
-            int x = e.X / SquareSideLength, y = e.Y / SquareSideLength;
-            Square squareObj = Squares[y][x];
+            /* We have to check the position of the mouse on the grid (in pixels),
+             * and obtain the Square object which resides in that position.
+             * If that square is not also the currently set ActiveSquare,
+             * it means that we've left the previously active square, and we
+             * have to reset its colour to its own BackColor. */
+
+            Square squareObj = GetSquare(e.X, e.Y);
             if (squareObj != ActiveSquare) {
                 /* Either ActiveSquare is null, or there's a previously active square.
                  * In the case of a previously active on, we must call OnMouseLeave() on it.
@@ -275,7 +279,10 @@ namespace Gui {
                     ActiveSquare.OnMouseLeave();
                     ActiveSquare = squareObj;
                 }
-                // Call OnMouseEnter() on the newly entered square
+                /* Call OnMouseEnter() on the newly entered square.
+                 * We do this here to avoid calling OnMouseEnter()
+                 * whenever the mouse moves inside the square
+                 * after having already entered its area. */
                 squareObj.OnMouseEnter();
             }
             // Set our current square object as the active square
@@ -284,8 +291,7 @@ namespace Gui {
 
         protected override void OnMouseClick(MouseEventArgs e) {
             /* We delegate the handling of a click event onto the square object itself. */
-            int x = e.X / SquareSideLength, y = e.Y / SquareSideLength;
-            Square squareObj = Squares[y][x];
+            Square squareObj = GetSquare(e.X, e.Y);
             if (e.Button == MouseButtons.Left) {
                 // Left click will set the colour to SelectedColor
                 squareObj.OnLeftMouseClick();
@@ -293,6 +299,19 @@ namespace Gui {
             else if (e.Button == MouseButtons.Right) {
                 // Right click will reset the square's colour back to the background colour of the grid
                 squareObj.OnRightMouseClick();
+            }
+        }
+
+        protected override void OnMouseLeave(EventArgs e) {
+            /* Called when the mouse leaves the GridBox altogether.
+             * We must reset the colour of the last active square
+             * to its own BackColor.
+             *
+             * We don't need to handle a specific MouseEnter() event for the GridBox
+             * because the MouseMove handler will already pick it up. */
+            if (ActiveSquare != null) {
+                ActiveSquare.OnMouseLeave();
+                ActiveSquare = null;
             }
         }
 #endregion
