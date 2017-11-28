@@ -17,11 +17,11 @@ namespace Gui {
         internal Point Location { get; set; } // Only required for Slider control
         private GridBox Parent { get; set; }
 
-        /* The only two events which cause the square's rectangle to be redrawn
-         * are MouseEnter and MouseLeave.
+        /* The events which cause the square's rectangle to be redrawn
+         * are MouseEnter and MouseLeave, and RightMouseClick.
          * MouseEnter always uses the Parent's SelectedColor color,
          * whereas MouseLeave always uses the square's BackColor color.
-         * Because calling Parent.Invalidate() from both results in a call
+         * Because calling Parent.Invalidate() from all three methods results in a call
          * to the GridBox's OnPaint method, we must signify which method invoked the call,
          * so that we can know which colour should be used to draw the square.
          * MouseEventType Enter (or 0) means enter, whereas Leave (or 1) means MouseLeave. */
@@ -77,6 +77,8 @@ namespace Gui {
              * parent's default background color.
              * Basically, "deletes" the color from the square. */
             BackColor = Parent.DefaultBackgroundColor;
+            MouseEvent = MouseEventType.Leave; // To signal that we should use Square.BackColor.
+            Parent.Invalidate(this.AreaRectangle);
         }
     } // END OF SQUARE CLASS
 
@@ -286,7 +288,7 @@ namespace Gui {
              * If that square is not also the currently set ActiveSquare,
              * it means that we've left the previously active square, and we
              * have to reset its colour to its own BackColor. */
-            
+
             Square squareObj;
             try  {
                 // First let's make sure this square exists.
@@ -353,12 +355,22 @@ namespace Gui {
         }
 
         protected override void OnMouseDown(MouseEventArgs e) {
+            Square squareObj = GetSquare(e.X, e.Y);
+
             if (e.Button == MouseButtons.Left) {
                 // Left button is pressed.
+                // We have to set this square's BackColor to the selected color,
+                // otherwise it will be ignored, since its OnMouseEnter() event
+                // will NOT fire, because it was already entered when this MouseDown
+                // event took place.
+                squareObj.BackColor = this.SelectedColor;
                 LeftMouseDown = true;
             }
             else if (e.Button == MouseButtons.Right) {
                 // Right button is pressed.
+                // We have to reset this square's BackColor to DefaultBackgroundColor,
+                // otherwise it will be ignored.
+                squareObj.BackColor = this.DefaultBackgroundColor;
                 RightMouseDown = true;
             }
         }
