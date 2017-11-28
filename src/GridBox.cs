@@ -1,19 +1,27 @@
 using System;
-using System.Windows.Forms;
-using System.Drawing;
 using System.Collections.Generic;
-using System.Linq;
-
-/* NOTE: use Invalidate(new Region(Square.AreaRectangle)) when updating individual squares.
- * https://msdn.microsoft.com/en-us/library/wtzka3b5(v=vs.110).aspx
- * https://msdn.microsoft.com/en-us/library/system.drawing.region(v=vs.110).aspx */
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace Gui {
+    // Required for redrawing the grid.
+    enum MouseEventType { Enter, Leave };
+
     class Square {
         internal Rectangle AreaRectangle { get; set; } // The Rectangle to fill with BackColor (Graphics.FillRectangle() method)
         internal Color BackColor { get; set; }
         internal Point Location { get; set; } // Only required for Slider control
         private GridBox Parent { get; set; }
+
+        /* The only two events which cause the square's rectangle to be redrawn
+         * are MouseEnter and MouseLeave.
+         * MouseEnter always uses the Parent's SelectedColor color,
+         * whereas MouseLeave always uses the square's BackColor color.
+         * Because calling Parent.Invalidate() from both results in a call
+         * to the GridBox's OnPaint method, we must signify which method invoked the call,
+         * so that we can know which colour should be used to draw the square.
+         * MouseEventType Enter (or 0) means enter, whereas Leave (or 1) means MouseLeave. */
+        internal MouseEventType MouseEvent { get; set; }
 
         internal Square(GridBox parent) {
             this.Parent = parent;
@@ -21,36 +29,48 @@ namespace Gui {
 
         internal void OnMouseEnter() {
             /* Called by the GridBox parent of the square
-             * when the mouse cursor enters the square's area */
-            Console.WriteLine("OnMouseEnter called. My area: {0}", AreaRectangle);
+             * when the mouse cursor enters the square's area.
+             * We set MouseEventType to 0, to indicate that
+             * Parent.SelectedColor should be used to draw the square. */
+            Console.WriteLine("Entering area: {0}", this.AreaRectangle);
+            MouseEvent = MouseEventType.Enter;
+            Parent.Invalidate(this.AreaRectangle);
         }
 
         internal void OnMouseLeave() {
             /* Called by the GridBox parent of the square
-             * when the mouse cursor leaves the square's area. */
-            Console.WriteLine("OnMouseLeave called. My area: {0}", AreaRectangle);
+             * when the mouse cursor leaves the square's area.
+             * We set MouseEventType to 1, to indicate that
+             * Square.BackColor should be used to draw the square. */
+            Console.WriteLine("Leaving area: {0}", this.AreaRectangle);
+            MouseEvent = MouseEventType.Leave;
+            Parent.Invalidate(this.AreaRectangle);
+            Parent.Update();
         }
 
         internal void OnLeftMouseClick() {
             /* Called by the GridBox parent of the square
-             * when the left mouse button is clicked while in the square's area. */
-            Console.WriteLine("Left click on square at {0}", AreaRectangle);
+             * when the left mouse button is clicked while in the square's area.
+             * We change the square's BackColor property to Parent.SelectedColor. */
+            BackColor = Parent.SelectedColor;
         }
 
         internal void OnRightMouseClick() {
             /* Called by the GridBox parent of the square
-             * when the right mouse button is clicked while in the square's area. */
-            Console.WriteLine("Right click on square at {0}", AreaRectangle);
+             * when the right mouse button is clicked while in the square's area.
+             * Resets the square's BackColor property to the
+             * parent's default background color.
+             * Basically, "deletes" the color from the square. */
+            BackColor = Parent.DefaultBackgroundColor;
         }
     } // END OF SQUARE CLASS
 
     class GridBox : Control {
-        /* Fields */
+#region Fields
         private Size _size;
         private int _squareSideLength;
-
-        /* Properties */
-
+#endregion
+#region Properties
         // The Squares list is a list-of-list of squares.
         // Each sublist represents a y-axis location, with its elements representing
         // the squares whose y-axis location is at that particular index,
@@ -119,19 +139,27 @@ namespace Gui {
                 }
             }
         }
-
-        // Constructor
+#endregion
+#region Constructor
         internal GridBox() {
             // Set UserPaint to true, to indicate that we'll draw the control manually
             this.SetStyle(ControlStyles.UserPaint, true);
             this.Name = "gridbox";
             this.DefaultBackgroundColor = Color.White;
+            // For now, SelectedColor will default to Color.Blue
+            this.SelectedColor = Color.Blue;
         }
-
+#endregion
+#region Methods
         internal void SetBackgroundColor(Color backColor) {
             /* Set the BackColor property of all the squares to <backColor>.
              * We use this method when we want to change the background color of the grid,
              * which means that all squares should be set to the same color. */
+            
+            // First we set the grid's default background colour to <backColor>
+            this.DefaultBackgroundColor = backColor;
+
+            // Now we set each square's BackColor property to <backColor>
             foreach(var squareList in Squares) {
                 foreach(Square squareObj in squareList) {
                     squareObj.BackColor = backColor;
@@ -142,7 +170,7 @@ namespace Gui {
         }
 
         private void PopulateSquares() {
-            /* Called when the Size property is changed.
+            /* Called when the Size property or SquareSideLength property is changed.
              *
              * This method will populate the private list of squares.
              * It will only be called when the Size property is being set,
@@ -187,7 +215,22 @@ namespace Gui {
             }
         }
         
-        // Paint Event Handler 
+        private Square GetSquare(int x, int y) {
+            // x and y are pixels.
+            // Returns the Square object found at index [y][x] in this.Squares
+            x = x / SquareSideLength;
+            y = y / SquareSideLength;
+            Square squareObj;
+            try {
+                squareObj = Squares[y][x];
+                return squareObj;
+            }
+            catch(IndexOutOfRangeException) {
+                return null;
+            }
+        }
+#endregion
+#region PaintEventHandler
         protected override void OnPaint(PaintEventArgs e) {
             /* Redraw the entire grid. */
             Graphics graphicsObj = e.Graphics;
@@ -198,10 +241,28 @@ namespace Gui {
                 DrawSquares(graphicsObj);
             }
             else {
-                /* Redraw only the specific rectangle. */
+                /* Redraw only the specific rectangle.
+                 * TODO: Construct a SolidBrush object using the square object's
+                 * BackColor property, or the GridBox object's DefaultBackgroundColor property. */
+                Square squareObj = GetSquare(clipRectangle.X, clipRectangle.Y);
+                if (squareObj != null) {
+                    Console.WriteLine("Redrawing square at: {0}", squareObj.AreaRectangle.ToString());
+                    SolidBrush paintBrush;
+                    if (squareObj.MouseEvent == MouseEventType.Enter) {
+                        // Enter
+                        paintBrush = new SolidBrush(this.SelectedColor);
+                    }
+                    else {
+                        // Leave
+                        Console.WriteLine("Leave event detected.");
+                        paintBrush = new SolidBrush(squareObj.BackColor);
+                    }
+                    graphicsObj.FillRectangle(paintBrush, squareObj.AreaRectangle);
+                }
             }
         }
-
+#endregion
+#region MouseEventHandlers
         protected override void OnMouseMove(MouseEventArgs e) {
             int x = e.X / SquareSideLength, y = e.Y / SquareSideLength;
             Square squareObj = Squares[y][x];
@@ -210,7 +271,7 @@ namespace Gui {
                  * In the case of a previously active on, we must call OnMouseLeave() on it.
                  * We also have to call OnMouseEnter() on the new square. */
                 if (ActiveSquare != null) {
-                    // There is a previously active on
+                    // There is a previously active square
                     ActiveSquare.OnMouseLeave();
                     ActiveSquare = squareObj;
                 }
@@ -234,65 +295,6 @@ namespace Gui {
                 squareObj.OnRightMouseClick();
             }
         }
+#endregion
     } // END OF GRIDBOX CLASS
-
-    class MainWindow : Form {
-        
-        // Border size in pixels
-        private int BorderInformation = SystemInformation.Border3DSize.Width * (int)Math.Pow(SystemInformation.Border3DSize.Width, 2);
-
-        internal MainWindow() {
-            Size = new Size(1000 + BorderInformation, 600);
-            CenterToScreen();
-            this.CreateGridBox();
-            ResizeEnd += new EventHandler(HandleResizeEnd);
-        }
-        private void CreateGridBox(int sideLength = 10) {
-            /* Creates a new GridBox control.
-             * Its size is based on the window and window border size.
-             * TODO: SquareSideLength should be dynamically set. */
-            GridBox gridBox = new GridBox();
-            gridBox.Location = new Point(0, 0);
-            gridBox.SquareSideLength = sideLength;
-            try {
-                // Try setting the GridBox's size
-                gridBox.ClientSize = new Size(this.Width - BorderInformation, 500);
-            }
-            catch (ArgumentException) {
-                // The new window width is not divisible by SquareSideLength.
-                // We must perform a modulus operation on it to find the remainder,
-                // and then subtract that remainder from the width.
-                // The final result is the width we can safely set.
-                int fullWidth = this.Width - BorderInformation;
-                int remainder = fullWidth % gridBox.SquareSideLength;
-                fullWidth -= remainder;
-                gridBox.ClientSize = new Size(fullWidth, 500);
-            }
-            // Add the newly created GridBox control to the MainWindow's Controls list.
-            this.Controls.Add(gridBox);
-        }
-
-        protected void HandleResizeEnd(object sender, EventArgs e) {
-            /* We need to resize the grid when the window size changes.
-             * We delete the old GridBox control
-             * and then call the function to create a new one. */
-            GridBox gridBox = (GridBox)this.Controls.Find("gridbox", true).FirstOrDefault();
-            int sideLength = 10; // The default value is 10
-            if (gridBox != null) {
-                // Remove the old control
-                sideLength = gridBox.SquareSideLength;
-                this.Controls.Remove(gridBox);
-            }
-            // Create the new one
-            this.CreateGridBox(sideLength);
-        }
-
-        private void ExitApplication() {
-            Close();
-        }
-    } // END OF MAINWINDOW CLASS
-
-    class Slider : Control {
-        //private Square Handle;
-    }
 }
