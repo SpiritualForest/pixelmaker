@@ -4,8 +4,12 @@ using System.Drawing;
 using System.Windows.Forms;
 
 namespace Gui {
-    // Required for redrawing the grid.
-    enum MouseEventType { Enter, Leave };
+    /* Required for redrawing the grid.
+     * 0. Mouse enters square area.
+     * 1. Mouse leaves square area.
+     * 2. Mouse dragged with left button down.
+     * 3. Mouse dragged with right button down. */
+    enum MouseEventType { Enter, Leave, LeftButtonDrag, RightButtonDrag };
 
     class Square {
         internal Rectangle AreaRectangle { get; set; } // The Rectangle to fill with BackColor (Graphics.FillRectangle() method)
@@ -32,7 +36,18 @@ namespace Gui {
              * when the mouse cursor enters the square's area.
              * We set MouseEventType to 0, to indicate that
              * Parent.SelectedColor should be used to draw the square. */
-            Console.WriteLine("Entering area: {0}", this.AreaRectangle);
+            
+            // Check for dragging
+            if (MouseEvent == MouseEventType.LeftButtonDrag) {
+                // Painting multiple squares
+                BackColor = Parent.SelectedColor;
+            }
+            else if (MouseEvent == MouseEventType.RightButtonDrag) {
+                // "Deleting" multiple squares
+                BackColor = Parent.DefaultBackgroundColor;
+            }
+            
+            // Now we indicate that the mouse event is Enter, and update our square.
             MouseEvent = MouseEventType.Enter;
             Parent.Invalidate(this.AreaRectangle);
         }
@@ -71,6 +86,9 @@ namespace Gui {
         private int _squareSideLength;
 #endregion
 #region Properties
+        private bool LeftMouseDown { get; set; } // Left button mouse is down (pressed)
+        private bool RightMouseDown { get; set; } // Right mouse button is down (pressed)
+
         // The Squares list is a list-of-list of squares.
         // Each sublist represents a y-axis location, with its elements representing
         // the squares whose y-axis location is at that particular index,
@@ -268,8 +286,16 @@ namespace Gui {
              * If that square is not also the currently set ActiveSquare,
              * it means that we've left the previously active square, and we
              * have to reset its colour to its own BackColor. */
-
-            Square squareObj = GetSquare(e.X, e.Y);
+            
+            Square squareObj;
+            try  {
+                // First let's make sure this square exists.
+                squareObj = GetSquare(e.X, e.Y);
+            }
+            catch(ArgumentOutOfRangeException) {
+                Console.WriteLine("Error. No such square. Out of range.");
+                return;
+            }
             if (squareObj != ActiveSquare) {
                 /* Either ActiveSquare is null, or there's a previously active square.
                  * In the case of a previously active on, we must call OnMouseLeave() on it.
@@ -282,7 +308,18 @@ namespace Gui {
                 /* Call OnMouseEnter() on the newly entered square.
                  * We do this here to avoid calling OnMouseEnter()
                  * whenever the mouse moves inside the square
-                 * after having already entered its area. */
+                 * after having already entered its area.
+                 *
+                 * However, before calling OnMouseEnter(), we must check whether
+                 * one of the mouse buttons is currently pressed.
+                 * If it's pressed, it means that the square is caught in a mouse drag,
+                 * and therefore should be notified that this is happening. */
+                if (LeftMouseDown) {
+                    squareObj.MouseEvent = MouseEventType.LeftButtonDrag;
+                }
+                else if (RightMouseDown) {
+                    squareObj.MouseEvent = MouseEventType.RightButtonDrag;
+                }
                 squareObj.OnMouseEnter();
             }
             // Set our current square object as the active square
@@ -312,6 +349,28 @@ namespace Gui {
             if (ActiveSquare != null) {
                 ActiveSquare.OnMouseLeave();
                 ActiveSquare = null;
+            }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e) {
+            if (e.Button == MouseButtons.Left) {
+                // Left button is pressed.
+                LeftMouseDown = true;
+            }
+            else if (e.Button == MouseButtons.Right) {
+                // Right button is pressed.
+                RightMouseDown = true;
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e) {
+            if (e.Button == MouseButtons.Left) {
+                // Left button is released.
+                LeftMouseDown = false;
+            }
+            else if (e.Button == MouseButtons.Right) {
+                // Right button is released.
+                RightMouseDown = false;
             }
         }
 #endregion
