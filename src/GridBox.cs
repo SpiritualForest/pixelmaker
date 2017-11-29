@@ -229,10 +229,15 @@ namespace Gui {
         private void DrawSquares(Graphics graphicsObj) {
             /* Draws all the squares on the GridBox.
              * This is only called by the OnPaint() event handler method. */
+
+            // Create a new SolidBrush object with the default background colour.
+            // We'll change the colour to the square object's BackColor on each iteration.
+            SolidBrush paintBrush = new SolidBrush(this.DefaultBackgroundColor);
+
             foreach(var squareList in Squares) {
                 foreach(Square squareObj in squareList) {
-                    /* Create a new paint brush with the square's color */
-                    SolidBrush paintBrush = new SolidBrush(squareObj.BackColor);
+                    /* Change the paint brush's colour to the square's BackColor */
+                    paintBrush.Color = squareObj.BackColor;
 
                     // Now we fill the square's area rectangle with its background color
                     graphicsObj.FillRectangle(paintBrush, squareObj.AreaRectangle);
@@ -266,9 +271,7 @@ namespace Gui {
                 DrawSquares(graphicsObj);
             }
             else {
-                /* Redraw only the specific rectangle.
-                 * TODO: Construct a SolidBrush object using the square object's
-                 * BackColor property, or the GridBox object's DefaultBackgroundColor property. */
+                /* Redraw only the specific rectangle (individual square). */
                 Square squareObj = GetSquare(clipRectangle.X, clipRectangle.Y);
                 if (squareObj != null) {
                     SolidBrush paintBrush;
@@ -361,9 +364,11 @@ namespace Gui {
         }
 
         protected override void OnMouseDown(MouseEventArgs e) {
+            // We need to handle this event to detect a mouse drag
             Square squareObj = GetSquare(e.X, e.Y);
             if (squareObj == null) {
                 // No such square;
+                Console.WriteLine("MouseDown occurred on non existing square.");
                 return;
             }
             if (e.Button == MouseButtons.Left) {
@@ -393,6 +398,39 @@ namespace Gui {
                 // Right button is released.
                 RightMouseDown = false;
             }
+        }
+#endregion
+#region MenuEventHandlers
+        internal void LoadMap(object sender, EventArgs e) {
+            /* Loads a map file into the grid.
+             * Will be implemented in the future. */
+            Console.WriteLine("LoadMap called.");
+        }
+
+        internal void SaveMap(object sender, EventArgs e) {
+            /* Saves the grid into a map file. */
+            Console.WriteLine("SaveMap called.");
+        }
+
+        internal void ExportBitmap(object sender, EventArgs e) {
+            /* Exports the map as a bitmap image */
+            Console.WriteLine("ExportBitmap called.");
+        }
+
+        internal void SetColorFromMenu(object sender, EventArgs e) {
+            /* Because the menu items require an event handler,
+             * we have to use this method to set the colour.
+             * We use Color.FromName(), but do NOT perform any validation checks
+             * here for the time being.
+             * FIXME: Perform validation checks to make sure the colour really exists. */
+            ToolStripMenuItem menuItem = (ToolStripMenuItem)sender;
+            this.SelectedColor = Color.FromName(menuItem.Name);
+
+            // Due to some weird ass problem, we must redraw the entire grid
+            // otherwise there's an area of the menu that overshadows it.
+            // Not sure why this is happening.
+            // TODO: Figure out why.
+            this.Invalidate();
         }
 #endregion
     } // END OF GRIDBOX CLASS

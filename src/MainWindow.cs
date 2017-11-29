@@ -64,10 +64,35 @@ namespace Gui {
         }
         
         private void PopulateMenubar() {
+            // First we have to obtain a reference to the GridBox object, which contains the methods we want to use as EventHandlers.
+            GridBox gridBox = (GridBox)this.Controls.Find("gridbox", true).FirstOrDefault();
+            if (gridBox == null) {
+                Console.WriteLine("Fatal error. A reference to the GridBox object could not be obtained.");
+                Console.WriteLine("The application will exit.");
+                this.Close();
+            }
+            // Top menus
             ToolStripMenuItem fileMenu = new ToolStripMenuItem("File");
-            var exitApp = new ToolStripMenuItem("Exit", null, new EventHandler(ExitApplication));
-            fileMenu.DropDownItems.Add(exitApp);
+            ToolStripMenuItem viewMenu = new ToolStripMenuItem("View");
+            // Sub menu items.
+            // For file menu
+            //                                  string  img   event handler
+            var loadMap = new ToolStripMenuItem("Load", null, new EventHandler(gridBox.LoadMap)); // Load map
+            var saveMap = new ToolStripMenuItem("Save", null, new EventHandler(gridBox.SaveMap)); // Save map
+            var exportBitmap = new ToolStripMenuItem("Export bitmap", null, new EventHandler(gridBox.ExportBitmap));
+            var exitApp = new ToolStripMenuItem("Exit", null, new EventHandler(ExitApplication)); // Exit app
+            ToolStripMenuItem[] items = new ToolStripMenuItem[] { loadMap, saveMap, exportBitmap, exitApp };
+            fileMenu.DropDownItems.AddRange(items);
             MainMenuStrip.Items.Add(fileMenu);
+            // View menu
+            var setColor = new ToolStripMenuItem("Paint colour");
+            string[] colors = new string[] { "Red", "Blue", "Green", "Yellow", "Pink" };
+            foreach(string color in colors) {
+                var colorItem = new ToolStripMenuItem(color, null, gridBox.SetColorFromMenu, color);
+                setColor.DropDownItems.Add(colorItem);
+            }
+            viewMenu.DropDownItems.Add(setColor);
+            MainMenuStrip.Items.Add(viewMenu);
         }
 
         protected void HandleResizeEnd(object sender, EventArgs e) {
