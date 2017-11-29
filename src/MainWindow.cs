@@ -4,9 +4,10 @@ using System.Drawing;
 using System.Linq;
 using Gui;
 
-/* NOTE: use Invalidate(new Region(Square.AreaRectangle)) when updating individual squares.
- * https://msdn.microsoft.com/en-us/library/wtzka3b5(v=vs.110).aspx
- * https://msdn.microsoft.com/en-us/library/system.drawing.region(v=vs.110).aspx */
+/* TODO:
+ * 0. Extend GUI to allow for colour selection.
+ * 1. Extend GUI to allow for resizing of squares.
+ */
 
 namespace Gui {
 
@@ -17,34 +18,56 @@ namespace Gui {
 
         internal MainWindow() {
             /* TODO: Dynamic sizing of the window. */
+            // Set Size and center the window
             Size = new Size(1000 + BorderInformation, 600);
             CenterToScreen();
+
+            // Create a new menu strip and assign it to our MainMenuStrip property
+            MenuStrip mainMenu = new MenuStrip();
+            MainMenuStrip = mainMenu;
+            this.Controls.Add(mainMenu);
+
+            // Create a new GridBox control
             this.CreateGridBox();
+
+            // Assign an event handler to a ResizeEnd event
             ResizeEnd += new EventHandler(HandleResizeEnd);
+
+            // Now we actually populate the menu
+            this.PopulateMenubar();
         }
+        
         private void CreateGridBox(int sideLength = 10) {
             /* Creates a new GridBox control.
-             * Its size is based on the window and window border size.
-             * TODO: the Grid Box's height should be based on MainWindow's Height property. */
+             * Its size is based on the window size,
+             * the Main menu strip's height, and the window border size. */
+            
             GridBox gridBox = new GridBox();
-            gridBox.Location = new Point(0, 0);
+            gridBox.Location = new Point(0, this.MainMenuStrip.Height-1);
             gridBox.SquareSideLength = sideLength;
-            try {
-                // Try setting the GridBox's size
-                gridBox.ClientSize = new Size(this.Width - BorderInformation, 500);
-            }
-            catch (ArgumentException) {
-                // The new window width is not divisible by SquareSideLength.
-                // We must perform a modulus operation on it to find the remainder,
-                // and then subtract that remainder from the width.
-                // The final result is the width we can safely set.
-                int fullWidth = this.Width - BorderInformation;
-                int remainder = fullWidth % gridBox.SquareSideLength;
-                fullWidth -= remainder;
-                gridBox.ClientSize = new Size(fullWidth, 500);
-            }
+
+            // The window size might not be divisible by SquareSideLength.
+            // We must perform a modulus operation on it to find the remainder,
+            // and then subtract that remainder from the width.
+            // The final result is the width we can safely set.
+            int fullWidth = this.Width - BorderInformation;
+            int remainder = fullWidth % sideLength;
+            fullWidth -= remainder;
+            // Now the height
+            int fullHeight = this.Height - (this.MainMenuStrip.Height * 2) - BorderInformation;
+            remainder = fullHeight % sideLength;
+            fullHeight -= remainder;
+
+            gridBox.ClientSize = new Size(fullWidth, fullHeight);
             // Add the newly created GridBox control to the MainWindow's Controls list.
             this.Controls.Add(gridBox);
+        }
+        
+        private void PopulateMenubar() {
+            ToolStripMenuItem fileMenu = new ToolStripMenuItem("File");
+            var exitApp = new ToolStripMenuItem("Exit", null, new EventHandler(ExitApplication));
+            fileMenu.DropDownItems.Add(exitApp);
+            MainMenuStrip.Items.Add(fileMenu);
         }
 
         protected void HandleResizeEnd(object sender, EventArgs e) {
@@ -62,7 +85,8 @@ namespace Gui {
             this.CreateGridBox(sideLength);
         }
 
-        private void ExitApplication() {
+        private void ExitApplication(object sender, EventArgs e) {
+            Console.WriteLine("Exiting application...");
             Close();
         }
     } // END OF MAINWINDOW CLASS

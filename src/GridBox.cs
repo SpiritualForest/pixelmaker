@@ -57,7 +57,6 @@ namespace Gui {
              * when the mouse cursor leaves the square's area.
              * We set MouseEventType to 1, to indicate that
              * Square.BackColor should be used to draw the square. */
-            Console.WriteLine("Leaving area: {0}", this.AreaRectangle);
             MouseEvent = MouseEventType.Leave;
             Parent.Invalidate(this.AreaRectangle);
             Parent.Update();
@@ -101,6 +100,7 @@ namespace Gui {
         internal Color SelectedColor { get; set; } // The color to which a square is set when it's clicked upon
         
         // The default background colour to which a square should be reset if not set to SelectedColor, or deleted by a right mouse click.
+        // I didn't use the built in BackColor property because that causes the intermittent lines between the squares to disappear.
         internal Color DefaultBackgroundColor { get; set; }
 
         internal int SquareSideLength {
@@ -115,6 +115,11 @@ namespace Gui {
                      * Anyway, squares of less than 5x5 pixels look really small and annoying. */
                     throw new ArgumentException("Side length must be at least 5.");
                 }
+                else if (this.Width == 0 || this.Height == 0) {
+                    // Size has not yet been set. Allow.
+                    // ints are initialized to zero by default.
+                    this._squareSideLength = value;
+                }
                 else if ((this.Width % value != 0) || (this.Height % value != 0)) {
                     /* The grid's width or height is not divisible by the given value.
                      * Abort operation. */
@@ -122,8 +127,8 @@ namespace Gui {
                 }
                 else {
                     this._squareSideLength = value;
-                    if (Squares != null) {
-                        /* Since the Squares list is not null,
+                    if (Squares.Count > 0) {
+                        /* Since the Squares list's count is more than 0,
                          * it means that the resizing took place
                          * after the grid had already been drawn at least once.
                          * Therefore we have to repopulate the squares list
@@ -245,7 +250,7 @@ namespace Gui {
                 squareObj = Squares[y][x];
                 return squareObj;
             }
-            catch(IndexOutOfRangeException) {
+            catch(ArgumentOutOfRangeException) {
                 return null;
             }
         }
@@ -289,13 +294,10 @@ namespace Gui {
              * it means that we've left the previously active square, and we
              * have to reset its colour to its own BackColor. */
 
-            Square squareObj;
-            try  {
-                // First let's make sure this square exists.
-                squareObj = GetSquare(e.X, e.Y);
-            }
-            catch(ArgumentOutOfRangeException) {
-                Console.WriteLine("Error. No such square. Out of range.");
+            Square squareObj = GetSquare(e.X, e.Y);
+            if (squareObj == null) {
+                // No such square. We must be out of bounds.
+                Console.WriteLine("Error. No such square. Out of bounds.");
                 return;
             }
             if (squareObj != ActiveSquare) {
@@ -331,6 +333,10 @@ namespace Gui {
         protected override void OnMouseClick(MouseEventArgs e) {
             /* We delegate the handling of a click event onto the square object itself. */
             Square squareObj = GetSquare(e.X, e.Y);
+            if (squareObj == null) {
+                // No such square.
+                return;
+            }
             if (e.Button == MouseButtons.Left) {
                 // Left click will set the colour to SelectedColor
                 squareObj.OnLeftMouseClick();
@@ -356,7 +362,10 @@ namespace Gui {
 
         protected override void OnMouseDown(MouseEventArgs e) {
             Square squareObj = GetSquare(e.X, e.Y);
-
+            if (squareObj == null) {
+                // No such square;
+                return;
+            }
             if (e.Button == MouseButtons.Left) {
                 // Left button is pressed.
                 // We have to set this square's BackColor to the selected color,
