@@ -8,6 +8,9 @@ using Gui;
 /* TODO:
  * 0. Extend GUI to allow for colour selection.
  * 1. Extend GUI to allow for resizing of squares.
+ * 2. Implement the ability to move the entire drawing around by a given number of square (left, right, down, up)
+ * 3. Implement saving and loading of maps.
+ * 4. FIXME: Use the built in ColorDialog for colour selection support. Fuck this menu shit.
  */
 
 namespace Gui {
@@ -29,7 +32,9 @@ namespace Gui {
             this.Controls.Add(mainMenu);
 
             // Create a new GridBox control
-            this.CreateGridBox();
+            GridBox gridBox = new GridBox();
+            this.Controls.Add(gridBox);
+            this.ResizeGridBox();
 
             // Assign an event handler to a ResizeEnd event
             ResizeEnd += new EventHandler(HandleResizeEnd);
@@ -38,42 +43,35 @@ namespace Gui {
             this.PopulateMenubar();
         }
         
-        private void CreateGridBox(int sideLength = 10) {
+        private void ResizeGridBox() {
             /* Creates a new GridBox control.
              * Its size is based on the window size,
-             * the Main menu strip's height, and the window border size. */
+             * the Main menu strip's height, and the window border size.
+             * The amount of squares is based on the SquareSideLength property. */
              
             int horizontalAxisPosition = 150; // The top-left x axis position.
-            GridBox gridBox = new GridBox();
+            GridBox gridBox = GetGridBox();
             gridBox.Location = new Point(horizontalAxisPosition, this.MainMenuStrip.Height-1);
-            gridBox.SquareSideLength = sideLength;
 
             // The window size might not be divisible by SquareSideLength.
             // We must perform a modulus operation on it to find the remainder,
             // and then subtract that remainder from the width.
             // The final result is the width we can safely set.
             int fullWidth = this.Width - BorderInformation;
-            int remainder = fullWidth % sideLength;
+            int remainder = fullWidth % gridBox.SquareSideLength;
             fullWidth -= remainder;
             fullWidth -= horizontalAxisPosition; // We need to subtract <x> from the width so the Grid size won't overflow beyond the window boundary
             // Now the height
             int fullHeight = this.Height - (this.MainMenuStrip.Height * 2) - BorderInformation;
-            remainder = fullHeight % sideLength;
+            remainder = fullHeight % gridBox.SquareSideLength;
             fullHeight -= remainder;
+            
+            Size tempSize = new Size(fullWidth, fullHeight);
 
-            gridBox.ClientSize = new Size(fullWidth, fullHeight);
-            // Add the newly created GridBox control to the MainWindow's Controls list.
-            this.Controls.Add(gridBox);
+            gridBox.ClientSize = tempSize;
         }
         
         private void PopulateMenubar() {
-            // First we have to obtain a reference to the GridBox object, which contains the methods we want to use as EventHandlers.
-            GridBox gridBox = (GridBox)this.Controls.Find("gridbox", true).FirstOrDefault();
-            if (gridBox == null) {
-                Console.WriteLine("Fatal error. A reference to the GridBox object could not be obtained.");
-                Console.WriteLine("The application will exit.");
-                this.Close();
-            }
             // FIXME: there's a big grey area on the grid after the menu disappears.
             // Find a way to redraw the grid when that happens.
             // Top menus
@@ -82,6 +80,7 @@ namespace Gui {
             // Sub menu items.
             // For file menu
             //                                  string  img   event handler
+            GridBox gridBox = GetGridBox();
             var loadMap = new ToolStripMenuItem("Load", null, new EventHandler(gridBox.LoadMap)); // Load map
             var saveMap = new ToolStripMenuItem("Save", null, new EventHandler(gridBox.SaveMap)); // Save map
             var exportBitmap = new ToolStripMenuItem("Export bitmap", null, new EventHandler(gridBox.ExportBitmap));
@@ -96,22 +95,18 @@ namespace Gui {
                 setColor.DropDownItems.Add(colorItem);
             }
             viewMenu.DropDownItems.Add(setColor);
+            var setBackgroundColor = new ToolStripMenuItem("Set background for all", null, 
+                    (sender, e) => { gridBox.SetBackgroundColor(Color.Black); });
+            var setForSome = new ToolStripMenuItem("Set background for some", null,
+                    (sender, e) => { gridBox.SetBackgroundColor(Color.Red, false); });
+            viewMenu.DropDownItems.Add(setBackgroundColor);
+            viewMenu.DropDownItems.Add(setForSome);
             MainMenuStrip.Items.Add(viewMenu);
         }
 
         protected void HandleResizeEnd(object sender, EventArgs e) {
-            /* We need to resize the grid when the window size changes.
-             * We delete the old GridBox control
-             * and then call the function to create a new one. */
-            GridBox gridBox = (GridBox)this.Controls.Find("gridbox", true).FirstOrDefault();
-            int sideLength = 10; // The default value is 10
-            if (gridBox != null) {
-                // Remove the old control
-                sideLength = gridBox.SquareSideLength;
-                this.Controls.Remove(gridBox);
-            }
-            // Create the new one
-            this.CreateGridBox(sideLength);
+            // Resize the GridBox control
+            this.ResizeGridBox();
         }
 
         private Dictionary<string, Color[]> GetColors() {
@@ -157,18 +152,13 @@ namespace Gui {
         }
 
         private List<ToolStripMenuItem> MenuColorsList() {
-            GridBox gridBox = GetGridBox();
-            if (gridBox == null) {
-                Console.WriteLine("Fatal error. Could not obtain a reference to the GridBox object.");
-                this.Close();
-            }
             // Create a list of menu items
             var colorItems = new List<ToolStripMenuItem>();
             // Iterate over the dictionary.
             foreach(KeyValuePair<string, Color[]> entry in GetColors()) {
                 // Create the parent item, which is a menu entry with the first letter for each colour
                 var parentItem = new ToolStripMenuItem(entry.Key);
-                parentItem.MouseEnter += (sender, e) => { gridBox.Invalidate(); };
+                parentItem.MouseEnter += (sender, e) => { GetGridBox().Invalidate(); };
                 foreach(Color color in entry.Value) {
                     // Create the child item, which is the one that actually sets the colour.
                     // Its name comes from the Color.Name property, which is a string.
@@ -176,9 +166,11 @@ namespace Gui {
                             // Anonymous function (or delegate in C# terms) to set 
                             // the GridBox's SelectedColor property to this item's colour.
                             (sender, e) => { 
+                            GridBox gridBox = GetGridBox();
                             gridBox.SelectedColor = color;
                             gridBox.Invalidate();
                             });
+                    childItem.BackColor = color;
                     // Add the child item to the parent item
                     parentItem.DropDownItems.Add(childItem);
                 }
@@ -189,6 +181,7 @@ namespace Gui {
         }
         
         private GridBox GetGridBox() {
+            // Returns a reference to the GridBox control
             GridBox gridBox = (GridBox)this.Controls.Find("gridbox", true).FirstOrDefault();
             return gridBox;
         }

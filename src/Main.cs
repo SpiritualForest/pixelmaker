@@ -22,7 +22,7 @@ class PixelMaker {
         Dictionary<string, string> arguments = ParseArguments(args);
         
         // PixelMaker version
-        string version = "0.1a";
+        string version = "0.1 pre-alpha";
 
         /* Check our environment */
         var os = Environment.OSVersion;
