@@ -38,14 +38,29 @@ namespace Gui {
                     // Minimum value is 5
                     throw new ArgumentException("Side length must be at least 5 pixels.");
                 }
+                // TODO: ShrinkSquares() and ExtendSquares() should account for side length!
+                int oldLength = this._squareSideLength;
                 this._squareSideLength = value;
+                if (Squares != null) { 
+                    this.RecalculateSquareRectangles();
+                    if (oldLength > value) {
+                        // The new length is smaller than the old one.
+                        // This means we need to add more squares to the list.
+                        this.ExtendSquares();
+                    }
+                    else {
+                        // The new length is larger.
+                        // This time we need to remove squares from the list.
+                        this.ShrinkSquares();
+                    }
+                }
             }
         }
 
         internal new Size ClientSize {
             get { return this._size; }
             set {
-                Size oldSize = this._size;
+                Size oldSize = this._size; // Required for comparison
                 this._size = value;
                 this.Width = value.Width;
                 this.Height = value.Height;
@@ -121,9 +136,7 @@ namespace Gui {
                 // Height is in pixels, so we divide it by SquareSideLength to get the list index.
                 foreach(Square squareObj in Squares[y]) {
                     if (PaintedSquares.ContainsKey(squareObj.Location)) {
-                        // This particular square is also part of PaintedSquares.
-                        // Since it gets removed from the grid, we have to remove it
-                        // from that dictionary as well. A non existent square cannot be painted ;)
+                        // A non existent square cannot be painted ;)
                         PaintedSquares.Remove(squareObj.Location);
                     }
                 }
@@ -153,7 +166,6 @@ namespace Gui {
              * or a larger amount of squares.
              *
              * Extends (or initializes) the squares list. */
-            Console.WriteLine("ExtendSquares() called.");
             if (Squares == null) {
                 // First-time initialization of the entire grid.
                 var topList = new List<List<Square>>();
@@ -173,7 +185,6 @@ namespace Gui {
                 this.Squares = topList;
             }
             else {
-                Console.WriteLine("Squares are: {0}x{1} (y, x).", Squares.Count, Squares[0].Count);
                 // Modify the existing squares list
                 // First extend the existing sublists.
                 for(int y = 0; y < Squares.Count; y++) {
@@ -231,6 +242,21 @@ namespace Gui {
             }
             catch(ArgumentOutOfRangeException) {
                 return null;
+            }
+        }
+
+        private void RecalculateSquareRectangles() {
+            /* Iterates over the list of squares
+             * and recalculates the area rectangle and top-left location point
+             * of each square based on the current SquareSideLength */
+            for(int y = 0; y < Squares.Count; y++) {
+                for(int x = 0; x < Squares[y].Count; x++) {
+                    Square squareObj = Squares[y][x];
+                    Rectangle AreaRectangle = new Rectangle(x*SquareSideLength+1, y*SquareSideLength+1, SquareSideLength-1, SquareSideLength-1);
+                    Point Location = new Point(x*SquareSideLength, y*SquareSideLength);
+                    squareObj.Location = Location;
+                    squareObj.AreaRectangle = AreaRectangle;
+                }
             }
         }
 #endregion
@@ -389,22 +415,6 @@ namespace Gui {
         internal void ExportBitmap(object sender, EventArgs e) {
             /* Exports the map as a bitmap image */
             Console.WriteLine("ExportBitmap called.");
-        }
-
-        internal void SetColorFromMenu(object sender, EventArgs e) {
-            /* Because the menu items require an event handler,
-             * we have to use this method to set the colour.
-             * We use Color.FromName(), but do NOT perform any validation checks
-             * here for the time being.
-             * FIXME: Perform validation checks to make sure the colour really exists. */
-            ToolStripMenuItem menuItem = (ToolStripMenuItem)sender;
-            this.SelectedColor = Color.FromName(menuItem.Name);
-
-            // Due to some weird ass problem, we must redraw the entire grid
-            // otherwise there's an area of the menu that overshadows it.
-            // Not sure why this is happening.
-            // TODO: Figure out why.
-            this.Invalidate();
         }
 #endregion
     } // END OF GRIDBOX CLASS
