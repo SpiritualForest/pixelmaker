@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Drawing;
 using System.Linq;
-using Gui;
+using Gui; // For GridBox control and ColorWindow form.
+using System.Threading;
 
 /* TODO:
  * 0. Extend GUI to allow for colour selection.
@@ -111,13 +112,16 @@ namespace Gui {
             var squareSizeItem = new ToolStripMenuItem("Square Size");
             squareSizeItem.DropDownItems.AddRange(squareSizes);
             viewMenu.DropDownItems.Add(squareSizeItem);
-
-            viewMenu.DropDownItems.Add(new ToolStripMenuItem("Open color dialog", null,
+            viewMenu.DropDownItems.Add(new ToolStripMenuItem("Color window", null,
                         (sender, e) => {
-                            ColorDialog cd = new ColorDialog();
-                            cd.ShowDialog();
-                        })
+                            ColorWindow colorWindow = new ColorWindow();
+                            //ColorWindow colorWindow = (ColorWindow)this.Controls.Find("MainColorWindow", true).FirstOrDefault();
+                            if (colorWindow == null) { return; }
+                            Console.WriteLine("colorWindow is NOT null.");
+                            colorWindow.Show();
+                            })
                     );
+
             MainMenuStrip.Items.Add(viewMenu);
         }
 
