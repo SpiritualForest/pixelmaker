@@ -81,9 +81,9 @@ namespace Gui {
             // Set UserPaint to true, to indicate that we'll draw the control manually
             this.SetStyle(ControlStyles.UserPaint, true);
             this.Name = "gridbox";
+            // Default background and selected colours are white
             this.DefaultBackgroundColor = Color.White;
-            // For now, SelectedColor will default to Color.Blue for testing purposes
-            this.SelectedColor = Color.Blue;
+            this.SelectedColor = Color.White;
             this.PaintedSquares = new Dictionary<Point, Square>();
         }
 #endregion

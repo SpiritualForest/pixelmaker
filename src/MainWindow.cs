@@ -70,7 +70,6 @@ namespace Gui {
             // Structs are value types, so we have to create a new one,
             // store it in a temporary struct, and then assign the temporary struct to ClientSize. 
             Size tempSize = new Size(fullWidth, fullHeight);
-            Console.WriteLine("The new size is: {0}", tempSize);
             gridBox.ClientSize = tempSize;
         }
         
@@ -114,14 +113,13 @@ namespace Gui {
             viewMenu.DropDownItems.Add(squareSizeItem);
             viewMenu.DropDownItems.Add(new ToolStripMenuItem("Color window", null,
                         (sender, e) => {
+                            // Create a new color window and hook up the ColorSelect event
+                            // Lambda within lambda... lol
                             ColorWindow colorWindow = new ColorWindow();
-                            //ColorWindow colorWindow = (ColorWindow)this.Controls.Find("MainColorWindow", true).FirstOrDefault();
-                            if (colorWindow == null) { return; }
-                            Console.WriteLine("colorWindow is NOT null.");
+                            colorWindow.ColorSelect += (senderObj, eventArgs) => { GetGridBox().SelectedColor = eventArgs.Color; };
                             colorWindow.Show();
                             })
                     );
-
             MainMenuStrip.Items.Add(viewMenu);
         }
 

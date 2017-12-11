@@ -50,6 +50,12 @@ namespace Gui {
             // Vertical (y axis)
             graphicsObj.DrawLine(greyPen, 1, 1, 1, Height);
         }
+
+        protected override void OnMouseClick(MouseEventArgs e) {
+            // Now we have to dispatch a new ColorSelect event.
+            // That particular event is defined in the ColorWindow parent form.
+            ParentWindow.DispatchColorSelectEvent(BackColor);
+        }
     }
 
     class ColorWindow : Form {
@@ -73,23 +79,24 @@ namespace Gui {
 
         private List<string> CustomColors { get; set; } // User-defined colours
         
+        public event EventHandler<ColorSelectEventArgs> ColorSelect; 
+       
         public ColorWindow() {
             // Size is always the same.
-            int colorBoxWidth = 15, colorBoxHeight = 15;
-            Size = new Size((8*10) + (8*colorBoxWidth) + 20, 300);
+            Size = new Size((8*10) + (8*15) + 20, (6*10) + (6*15) + 40);
             Text = "Color Window";
             FormBorderStyle = FormBorderStyle.FixedToolWindow;
             
             // Now create the color boxes
             int x = 10, y = 10;
             for(int i = 1; i <= PredefinedColors.Length; i++) {
-                // i is initially 1 because 0 % 8 == 0, and that fucks up the logic later on.
+                // i is initially 1 because 0 % N is always 0, and that fucks up the logic later on.
                 // Create a new ColorBox with this window as its parent window
                 ColorBox colorBox = new ColorBox(this);
 
                 // Set color, size, and location within the parent window
                 colorBox.BackColor = ColorTranslator.FromHtml(PredefinedColors[i-1]);
-                colorBox.Size = new Size(colorBoxWidth, colorBoxHeight);
+                colorBox.Size = new Size(15, 15);
                 colorBox.Location = new Point(x, y);
                 x += colorBox.Width + 10;
                 if (i % 8 == 0) {
@@ -104,5 +111,25 @@ namespace Gui {
                 colorBox.Invalidate();
             }
         }
+#region ColorSelectEvent handlers
+        internal void DispatchColorSelectEvent(Color color) {
+            ColorSelectEventArgs args = new ColorSelectEventArgs();
+            args.Color = color;
+            OnColorSelect(args);
+        }
+
+        protected virtual void OnColorSelect(ColorSelectEventArgs e) {
+            // God damn... sometimes I hate C#.
+            // Although most of the time I love it.
+            EventHandler<ColorSelectEventArgs> handler = ColorSelect;
+            if (handler != null) {
+                handler(this, e);
+            }
+        }
+#endregion
+    }
+
+    public class ColorSelectEventArgs : EventArgs {
+        public Color Color { get; set; }
     }
 }
