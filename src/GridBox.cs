@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using Gui; // For Square class
+using Gui; // For Square class and MouseEvent enum
 
 namespace Gui {
 
@@ -75,6 +75,7 @@ namespace Gui {
                 }
             }
         }
+        internal MainWindow ParentWindow { get; set; }
 #endregion
 #region Constructor
         internal GridBox() {
@@ -146,7 +147,7 @@ namespace Gui {
             // Now we remove any extra squares on each sublist.
             // This happens when the width was changed.
             for(int y = 0; y < Squares.Count; y++) {
-                // One again we loop backwards starting at Count - 1 until we hit the new width.
+                // Once again we loop backwards starting at Count - 1 until we hit the new width.
                 for(int x = Squares[y].Count - 1; x > this.Width / SquareSideLength; x--) {
                     Square squareObj = Squares[y][x];
                     Squares[y].RemoveAt(x);
@@ -417,5 +418,32 @@ namespace Gui {
             Console.WriteLine("ExportBitmap called.");
         }
 #endregion
+	internal void ResizeGridBox() {
+            /* Resizes the GridBox.
+             * Its size is based on the parent window size,
+             * the Main menu strip's height, and the parent window border size.
+             * The amount of squares is based on the SquareSideLength property. */
+             
+            int horizontalAxisPosition = (15*3)+(5*3)+20; // The top-left x axis position.
+            int BorderInformation = ParentWindow.BorderInformation;
+
+            // The window size might not be divisible by SquareSideLength.
+            // We must perform a modulus operation on it to find the remainder,
+            // and then subtract that remainder from the width.
+            // The final result is the width we can safely set.
+            int fullWidth = ParentWindow.Width - BorderInformation;
+            int remainder = fullWidth % this.SquareSideLength;
+            fullWidth -= remainder;
+            fullWidth -= horizontalAxisPosition; // We need to subtract <x> from the width so the Grid size won't overflow beyond the window boundary
+            // Now the height
+            int fullHeight = ParentWindow.Height - (ParentWindow.MainMenuStrip.Height * 2) - BorderInformation;
+            remainder = fullHeight % this.SquareSideLength;
+            fullHeight -= remainder;
+            
+            // Structs are value types, so we have to create a new one,
+            // store it in a temporary struct, and then assign the temporary struct to ClientSize. 
+            Size tempSize = new Size(fullWidth, fullHeight);
+            this.ClientSize = tempSize;
+        }
     } // END OF GRIDBOX CLASS
-}
+} // END OF GUI NAMESPACE
