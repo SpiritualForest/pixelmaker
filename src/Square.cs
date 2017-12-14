@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Forms; // For Control class
 using System.Drawing; // For Rectangle, Point, and Color structures
 using Gui; // For GridBox definition
 
@@ -13,7 +14,7 @@ namespace Gui {
     class Square {
         internal Rectangle AreaRectangle { get; set; } // The Rectangle to fill with BackColor (Graphics.FillRectangle() method)
         internal Color BackColor { get; set; }
-        internal Point Location { get; set; } // Top-left x,y point of the square on the grid
+        internal Point Location { get; set; }
         private GridBox Parent { get; set; }
 
         /* The events which cause the square's rectangle to be redrawn

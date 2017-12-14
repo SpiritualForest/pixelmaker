@@ -207,7 +207,6 @@ namespace Gui {
                 }
             }
             // Redraw the grid.
-            // FIXME: For some reason, the grid doesn't always get automatically redrawn on Invalidate()
             this.Invalidate();
         }
         
@@ -219,7 +218,6 @@ namespace Gui {
             // We'll change the colour to the square object's BackColor on each iteration.
             SolidBrush paintBrush = new SolidBrush(this.DefaultBackgroundColor);
             Console.WriteLine("DrawSquares total squares: {0}x{1} (y, x)", Squares.Count, Squares[0].Count);
-            //Console.WriteLine("Squares count: {0}", Squares[0].Count);
             foreach(var squareList in Squares) {
                 foreach(Square squareObj in squareList) {
                     /* Change the paint brush's colour to the square's BackColor */
@@ -236,10 +234,8 @@ namespace Gui {
             // Returns the Square object found at index [y][x] in this.Squares
             x = x / SquareSideLength;
             y = y / SquareSideLength;
-            Square squareObj;
             try {
-                squareObj = Squares[y][x];
-                return squareObj;
+                return Squares[y][x];
             }
             catch(ArgumentOutOfRangeException) {
                 return null;
@@ -288,6 +284,44 @@ namespace Gui {
                     graphicsObj.FillRectangle(paintBrush, squareObj.AreaRectangle);
                 }
             }
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e) {
+            /* This method gets called whenever the GridBox's background has to be redrawn.
+             * Unfortunately for us, a pure background redrawing means that any squares found
+             * in the rectangle area which is being redrawn, will be overwritten, and their affected pixels
+             * will also be redrawn as the GridBox's BackColor.
+             * Therefore we have to handle this event, call the base OnPaintBackground() to redraw
+             * the area's background, and then redraw all the affected squares ourselves. */
+
+            base.OnPaintBackground(e);
+            if (e.ClipRectangle.Width != this.Width) {
+                // We only handle this when a portion of the grid has to be redrawn.
+                // If the entire grid has to be redrawn, DrawSquares() handles it.
+                // Sample: {X=0,Y=0,Width=95,Height=87}
+                // Starting at the square found at X,Y, we have to redraw Width*Height squares.
+                Console.WriteLine("Redrawing area: {0}", e.ClipRectangle);
+                int y = e.ClipRectangle.Y / SquareSideLength, x = e.ClipRectangle.X / SquareSideLength;
+                int originalX = x;
+                for(int verticalSquares = -1; verticalSquares <= e.ClipRectangle.Height / SquareSideLength; verticalSquares++) {
+                    for(int horizontalSquares = -1; horizontalSquares <= e.ClipRectangle.Width / SquareSideLength; horizontalSquares++) {
+                        try {
+                            Square squareObj = Squares[y][x];
+                            SolidBrush paintBrush = new SolidBrush(squareObj.BackColor);
+                            e.Graphics.FillRectangle(paintBrush, squareObj.AreaRectangle);
+                        }
+                        catch(ArgumentOutOfRangeException) {
+                            Console.WriteLine("OnPaintBackground on non existing square.");
+                        }
+                        finally {
+                            x++;
+                        }
+                    }
+                    // After each vertical (y axis) completion, x must be set to its original value
+                    x = originalX;
+                    y++;
+                }
+            }                
         }
 #endregion
 #region MouseEventHandlers
@@ -403,10 +437,15 @@ namespace Gui {
 #endregion
 #region MenuEventHandlers
         internal void LoadMap(object sender, EventArgs e) {
-            /* Loads a map file into the grid.
-             * Will be implemented in the future.
-             * TODO: Use the built in OpenFileDialog() */
-            Console.WriteLine("LoadMap called.");
+            /* Loads a map file into the grid. */
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.InitialDirectory = Environment.CurrentDirectory;
+            openFileDialog.RestoreDirectory = true;
+            openFileDialog.Filter = "PixelMaker files (*.pxl)|*.pxl";
+            if (openFileDialog.ShowDialog() == DialogResult.OK) {
+                // A file was successfully selected by the user.
+                string fileName = openFileDialog.FileName;
+            }
         }
 
         internal void SaveMap(object sender, EventArgs e) {
@@ -426,7 +465,10 @@ namespace Gui {
              * Its size is based on the parent window size,
              * the Main menu strip's height, and the parent window border size.
              * The amount of squares is based on the SquareSideLength property. */
-             
+            
+            // Each ColorBox is 15 pixels in size (width and height).
+            // There are three adjacent ColorBoxes, spaced 5 pixels apart from one another. 
+            // Another 20 pixels serve as padding.
             int horizontalAxisPosition = (15*3)+(5*3)+20; // The top-left x axis position.
             int BorderInformation = ParentWindow.BorderInformation;
 

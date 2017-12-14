@@ -107,7 +107,7 @@ namespace Gui {
             colorsLabel.Text = "Colors:";
             this.Controls.Add(colorsLabel);
 
-            int y = MainMenuStrip.Height + colorsLabel.Height+3, x = 5;
+            int y = MainMenuStrip.Height + colorsLabel.Height+3, x = 5; // x,y topleft point. Pixels.
             for(int i = 1; i <= PredefinedColors.Length; i++) {
                 // i == 1 initially because 0 % N is 0,
                 // which causes a logic problem later on.
@@ -120,7 +120,8 @@ namespace Gui {
                 this.Controls.Add(colorBox);
                 x += colorBox.Width+10;
                 if (i % 3 == 0) {
-                    /* On every 3 ColorBoxes drawn, we move down by 10 pixels. */
+                    /* On every 3 ColorBoxes drawn we move downwards by the ColorBox's height plus 10 pixels.
+                     * We also have to reset x to its original position. */
                     x = 5;
                     y += colorBox.Height+10;
                 }
@@ -194,34 +195,16 @@ namespace Gui {
             
             // ColorDialog for custom colours
             viewMenu.DropDownItems.Add(
-                    new ToolStripMenuItem("Color dialog", null, (sender, e) => {
+                    // FIXME: "Select color to draw" is a fucking HORRIBLE way to describe this item's functionality.
+                    new ToolStripMenuItem("Select color to draw", null, (sender, e) => {
                         if (colorDialog.ShowDialog() == DialogResult.OK) {
                             gridBox.SelectedColor = colorDialog.Color;
                             this.Controls.Find("BigBox", true).FirstOrDefault().BackColor = colorDialog.Color;
                         }
-                        gridBox.Invalidate();
                     })
             );
             MainMenuStrip.Items.Add(viewMenu);
             MainMenuStrip.Items.Add(helpMenu); // TODO: Make documentation and display it via the help menu
-            foreach(ToolStripMenuItem menuItem in MainMenuStrip.Items) {
-                /* This just adds a GridBox.Invalidate() call
-                 * on every menu item, when its MouseEnter event has occurred.
-                 * We have to do this because otherwise the menu overwrites the GridBox,
-                 * so we have to redraw the GridBox. */
-
-                // FIXME: Find a different way to solve this problem. This solution is not efficient.
-                AddInvalidateCallToMenuItem(menuItem);
-            }
-        }
-
-        private void AddInvalidateCallToMenuItem(ToolStripMenuItem menuItem) {
-            // Recursively adds a GridBox.Invalidate() call to the menu item
-            // and all of its children, until no more children are found.
-            menuItem.MouseEnter += (sender, e) => { GetGridBox().Invalidate(); };
-            foreach(ToolStripMenuItem childItem in menuItem.DropDownItems) {
-                AddInvalidateCallToMenuItem(childItem);
-            }
         }
 
         protected void HandleResizeEnd(object sender, EventArgs e) {
