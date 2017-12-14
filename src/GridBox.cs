@@ -267,7 +267,7 @@ namespace Gui {
                 Console.WriteLine("Redrawing entire grid...");
                 DrawSquares(graphicsObj);
             }
-            else {
+            else if (clipRectangle.Width <= SquareSideLength) {
                 /* Redraw only the specific rectangle (individual square). */
                 Square squareObj = GetSquare(clipRectangle.X, clipRectangle.Y);
                 if (squareObj != null) {
@@ -284,27 +284,14 @@ namespace Gui {
                     graphicsObj.FillRectangle(paintBrush, squareObj.AreaRectangle);
                 }
             }
-        }
-
-        protected override void OnPaintBackground(PaintEventArgs e) {
-            /* This method gets called whenever the GridBox's background has to be redrawn.
-             * Unfortunately for us, a pure background redrawing means that any squares found
-             * in the rectangle area which is being redrawn, will be overwritten, and their affected pixels
-             * will also be redrawn as the GridBox's BackColor.
-             * Therefore we have to handle this event, call the base OnPaintBackground() to redraw
-             * the area's background, and then redraw all the affected squares ourselves. */
-
-            base.OnPaintBackground(e);
-            if (e.ClipRectangle.Width != this.Width) {
-                // We only handle this when a portion of the grid has to be redrawn.
-                // If the entire grid has to be redrawn, DrawSquares() handles it.
+            else {
+                // Redraw an area that contains several squares, but not the entire grid.
                 // Sample: {X=0,Y=0,Width=95,Height=87}
                 // Starting at the square found at X,Y, we have to redraw Width*Height squares.
-                Console.WriteLine("Redrawing area: {0}", e.ClipRectangle);
-                int y = e.ClipRectangle.Y / SquareSideLength, x = e.ClipRectangle.X / SquareSideLength;
+                int y = clipRectangle.Y / SquareSideLength, x = clipRectangle.X / SquareSideLength;
                 int originalX = x;
-                for(int verticalSquares = -1; verticalSquares <= e.ClipRectangle.Height / SquareSideLength; verticalSquares++) {
-                    for(int horizontalSquares = -1; horizontalSquares <= e.ClipRectangle.Width / SquareSideLength; horizontalSquares++) {
+                for(int verticalSquares = -1; verticalSquares <= clipRectangle.Height / SquareSideLength; verticalSquares++) {
+                    for(int horizontalSquares = -1; horizontalSquares <= clipRectangle.Width / SquareSideLength; horizontalSquares++) {
                         try {
                             Square squareObj = Squares[y][x];
                             SolidBrush paintBrush = new SolidBrush(squareObj.BackColor);
@@ -321,7 +308,7 @@ namespace Gui {
                     x = originalX;
                     y++;
                 }
-            }                
+            } 
         }
 #endregion
 #region MouseEventHandlers
