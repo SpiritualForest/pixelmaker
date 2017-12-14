@@ -404,17 +404,20 @@ namespace Gui {
 #region MenuEventHandlers
         internal void LoadMap(object sender, EventArgs e) {
             /* Loads a map file into the grid.
-             * Will be implemented in the future. */
+             * Will be implemented in the future.
+             * TODO: Use the built in OpenFileDialog() */
             Console.WriteLine("LoadMap called.");
         }
 
         internal void SaveMap(object sender, EventArgs e) {
             /* Saves the grid into a map file. */
+            // TODO: Use the build in SaveFileDialog();
             Console.WriteLine("SaveMap called.");
         }
 
         internal void ExportBitmap(object sender, EventArgs e) {
             /* Exports the map as a bitmap image */
+            // TODO: Use the built in SaveFileDialog()
             Console.WriteLine("ExportBitmap called.");
         }
 #endregion

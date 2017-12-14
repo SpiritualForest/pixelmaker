@@ -22,14 +22,14 @@ namespace Gui {
 
         protected override void OnPaint(PaintEventArgs e) {
             Graphics graphicsObj = e.Graphics;
-            /* Two dark grey lines should be painted at
-             * x: 0 - this.Width,
-             * y: 0 - this.Height. */
+            /* First we fill the entire ColorBox's rectangle with its background colour.
+             * Then we draw the 3D border using two grey lines. */
             // Rectangle at Location 0,0, fill Width,Height
             Rectangle areaRectangle = new Rectangle(0, 0, Width, Height);
             SolidBrush paintBrush = new SolidBrush(BackColor);
             graphicsObj.FillRectangle(paintBrush, areaRectangle);
-            // Now draw the grey lines
+            
+            // Now draw the grey border
             // First the outer, brighter ones
             Pen greyPen = new Pen(Color.FromArgb(169, 169, 169));
 
@@ -76,9 +76,11 @@ namespace Gui {
             "#FF000000", "#FF808000", "#ff808040", "#FF808080", "#ff408080", "#FFC0C0C0", "#ff400040", "#FFFFFFFF",
         };
 
+        private ColorDialog colorDialog = new ColorDialog();
+
         internal MainWindow() {
             // Set Size and center the window
-            Size = new Size(1000 + BorderInformation, 600);
+            Size = new Size(1200 + BorderInformation, 600);
             CenterToScreen();
 
             // Create a new menu strip and assign it to our MainMenuStrip property
@@ -101,7 +103,7 @@ namespace Gui {
 
             // Draw the color boxes (for color selection)
             Label colorsLabel = new Label();
-            colorsLabel.Location = new Point(1, MainMenuStrip.Height+1);
+            colorsLabel.Location = new Point(5, MainMenuStrip.Height+1);
             colorsLabel.Text = "Colors:";
             this.Controls.Add(colorsLabel);
 
@@ -128,8 +130,9 @@ namespace Gui {
             y += 10;
             Label selected = new Label();
             selected.Text = "Selected:";
-            selected.Location = new Point(1, y);
+            selected.Location = new Point(5, y);
             this.Controls.Add(selected);
+            
             ColorBox bigBox = new ColorBox(this);
             bigBox.Location = new Point(5, y+25);
             bigBox.Size = new Size((15*3)+(5*3)+5, 50);
@@ -145,6 +148,7 @@ namespace Gui {
             // Top menus
             ToolStripMenuItem fileMenu = new ToolStripMenuItem("File");
             ToolStripMenuItem viewMenu = new ToolStripMenuItem("View");
+            ToolStripMenuItem helpMenu = new ToolStripMenuItem("Help");
             // Sub menus.
             // File menu first.
             var loadMap = new ToolStripMenuItem("Load", null, new EventHandler(gridBox.LoadMap));
@@ -187,7 +191,19 @@ namespace Gui {
                         gridBox.SetBackgroundColor(Color.White);
                     })
             );
+            
+            // ColorDialog for custom colours
+            viewMenu.DropDownItems.Add(
+                    new ToolStripMenuItem("Color dialog", null, (sender, e) => {
+                        if (colorDialog.ShowDialog() == DialogResult.OK) {
+                            gridBox.SelectedColor = colorDialog.Color;
+                            this.Controls.Find("BigBox", true).FirstOrDefault().BackColor = colorDialog.Color;
+                        }
+                        gridBox.Invalidate();
+                    })
+            );
             MainMenuStrip.Items.Add(viewMenu);
+            MainMenuStrip.Items.Add(helpMenu); // TODO: Make documentation and display it via the help menu
             foreach(ToolStripMenuItem menuItem in MainMenuStrip.Items) {
                 /* This just adds a GridBox.Invalidate() call
                  * on every menu item, when its MouseEnter event has occurred.
