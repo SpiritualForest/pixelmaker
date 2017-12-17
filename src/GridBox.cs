@@ -445,62 +445,65 @@ namespace Gui {
                     MessageBox.Show("No such file: {0}", fileName);
                     return;
                 }
-                // FIXME: Perform access checking.
+                
                 // Now we can proceed with reading and loading the file
-                using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
-                    /* The first 10 bytes are the header, in the following order:
-                     * MainWindow width, MainWindow height,
-                     * GridBox width, GridBox height,
-                     * Square side length.
-                     * Each one is an unsigned int16 type.
-                     * We cast them to an int, because in the program we use int, rather than uint16.
-                     * We only used uint16 to save space on the disk. */
-                    // MainWindow size
-                    int mainWindowWidth = (int)reader.ReadUInt16();
-                    int mainWindowHeight = (int)reader.ReadUInt16();
-                    // GridBox size
-                    int gridBoxWidth = (int)reader.ReadUInt16();
-                    int gridBoxHeight = (int)reader.ReadUInt16();
-                    // Square side length
-                    int squareSideLength = (int)reader.ReadUInt16();
+                try {
+                    using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
+                        /* The first 10 bytes are the header, in the following order:
+                        * MainWindow width, MainWindow height,
+                        * GridBox width, GridBox height,
+                        * Square side length.
+                        * Each one is an unsigned int16 type.
+                        * We cast them to an int, because in the program we use int, rather than uint16.
+                        * We only used uint16 to save space on the disk. */
+                        // MainWindow size
+                        int mainWindowWidth = (int)reader.ReadUInt16();
+                        int mainWindowHeight = (int)reader.ReadUInt16();
+                        // GridBox size
+                        int gridBoxWidth = (int)reader.ReadUInt16();
+                        int gridBoxHeight = (int)reader.ReadUInt16();
+                        // Square side length
+                        int squareSideLength = (int)reader.ReadUInt16();
 
-                    // Set the window, gridbox, and square sizes
-                    Size mainWindowSize = new Size(mainWindowWidth, mainWindowHeight);
-                    ParentWindow.Size = mainWindowSize;
-                    Size gridBoxSize = new Size(gridBoxWidth, gridBoxHeight);
-                    this.Size = gridBoxSize;
-                    SquareSideLength = squareSideLength;
+                        // Set the window, gridbox, and square sizes
+                        Size mainWindowSize = new Size(mainWindowWidth, mainWindowHeight);
+                        ParentWindow.Size = mainWindowSize;
+                        Size gridBoxSize = new Size(gridBoxWidth, gridBoxHeight);
+                        this.Size = gridBoxSize;
+                        SquareSideLength = squareSideLength;
 
-                    // Now read the colours and form a list of squares.
-                    while(reader.BaseStream.Position != reader.BaseStream.Length) {
-                        List<List<Square>> squareObjects = new List<List<Square>>();
-                        for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
-                            List<Square> sublist = new List<Square>();
-                            for(int x = 0; x < gridBoxWidth; x += squareSideLength) {
-                                Square squareObj = new Square(this, x, y);
-                                // Read 4 bytes from the map file.
-                                // These bytes represent ARGB values, from which we will then form the square's colour code.
-                                byte A = reader.ReadByte();
-                                byte R = reader.ReadByte();
-                                byte G = reader.ReadByte();
-                                byte B = reader.ReadByte();
-                                squareObj.BackColor = Color.FromArgb(A, R, G, B);
-                                sublist.Add(squareObj);
+                        // Now read the colours and form a list of squares.
+                        while(reader.BaseStream.Position != reader.BaseStream.Length) {
+                            List<List<Square>> squareObjects = new List<List<Square>>();
+                            for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
+                                List<Square> sublist = new List<Square>();
+                                for(int x = 0; x < gridBoxWidth; x += squareSideLength) {
+                                    Square squareObj = new Square(this, x, y);
+                                    // Read 4 bytes from the map file.
+                                    // These bytes represent ARGB values, from which we will then form the square's colour code.
+                                    byte A = reader.ReadByte();
+                                    byte R = reader.ReadByte();
+                                    byte G = reader.ReadByte();
+                                    byte B = reader.ReadByte();
+                                    squareObj.BackColor = Color.FromArgb(A, R, G, B);
+                                    sublist.Add(squareObj);
+                                }
+                                squareObjects.Add(sublist);
                             }
-                            squareObjects.Add(sublist);
+                            Squares = squareObjects;
                         }
-                        Squares = squareObjects;
+                        // Redraw the grid.
+                        Invalidate();
                     }
-                    // Redraw the grid.
-                    Invalidate();
+                }
+                catch(UnauthorizedAccessException) {
+                    MessageBox.Show("Could not open file. Permission denied.");
                 }
             }
         }
 
         internal void SaveMap(string fileName) {
             /* Saves the grid into a map file. */
-            // TODO: Use the build in SaveFileDialog();
-            Console.WriteLine("SaveMap called.");
             if (fileName == null) {
                 // No filename given.
                 // We must therefore prompt the user to select a file into which we should save the map.
@@ -538,24 +541,28 @@ namespace Gui {
                 // Square size
                 (UInt16)this.SquareSideLength,
             };
-            // FIXME: Perform access checking.
-            using (BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
-                // Write the headers first. A total of 10 bytes. (5 headers, 2 bytes each)
-                foreach(UInt16 header in headers) {
-                    writer.Write(header);
-                }
-                // Write the squares.
-                foreach(List<Square> sublist in Squares) {
-                    foreach(Square squareObj in sublist) {
-                        /* Each colour consists of A, R, G, and B values.
-                         * Each of these values is a single byte (0 - 255), totalling 4 bytes per square. */
-                        Color color = squareObj.BackColor;
-                        byte[] argb = new byte[] { color.A, color.R, color.G, color.B };
-                        foreach(byte byteValue in argb) {
-                            writer.Write(byteValue);
+            try {
+                using (BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
+                    // Write the headers first. A total of 10 bytes. (5 headers, 2 bytes each)
+                    foreach(UInt16 header in headers) {
+                        writer.Write(header);
+                    }
+                    // Write the squares.
+                    foreach(List<Square> sublist in Squares) {
+                        foreach(Square squareObj in sublist) {
+                            /* Each colour consists of A, R, G, and B values.
+                            * Each of these values is a single byte (0 - 255), totalling 4 bytes per square. */
+                            Color color = squareObj.BackColor;
+                            byte[] argb = new byte[] { color.A, color.R, color.G, color.B };
+                            foreach(byte byteValue in argb) {
+                                writer.Write(byteValue);
+                            }
                         }
                     }
                 }
+            }
+            catch(UnauthorizedAccessException) {
+                MessageBox.Show("Cannot save file. Permission denied.");
             }
         }
 
