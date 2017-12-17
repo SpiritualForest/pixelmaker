@@ -67,7 +67,8 @@ namespace Gui {
         
         // Border size in pixels
 	internal int BorderInformation = SystemInformation.Border3DSize.Width * (int)Math.Pow(SystemInformation.Border3DSize.Width, 2);
-	private string[] PredefinedColors = new string[] {
+        // Hexadecimal values for all the colours we support out of the box.
+        private string[] PredefinedColors = new string[] {
             "#ffff8080", "#ffffff80", "#ff80ff80", "#ff00ff80", "#ff80ffff", "#ff0080ff", "#ffff80c0", "#ffff80ff",
             "#FFFF0000", "#FFFFFF00", "#ff80ff00", "#ff00ff40", "#FF00FFFF", "#ff0080c0", "#ff8080c0", "#FFFF00FF",
             "#ff804040", "#ffff8040", "#FF00FF00", "#FF008080", "#ff004080", "#ff8080ff", "#ff800040", "#ffff0080", 
@@ -76,7 +77,8 @@ namespace Gui {
             "#FF000000", "#FF808000", "#ff808040", "#FF808080", "#ff408080", "#FFC0C0C0", "#ff400040", "#FFFFFFFF",
         };
 
-        private ColorDialog colorDialog = new ColorDialog();
+        private ColorDialog colorDialog = new ColorDialog(); // Used primarily for creating custom colours
+        internal string CurrentWorkingFile { get; set; }
 
         internal MainWindow() {
             // Set Size and center the window
@@ -153,10 +155,12 @@ namespace Gui {
             // Sub menus.
             // File menu first.
             var loadMap = new ToolStripMenuItem("Load", null, new EventHandler(gridBox.LoadMap));
-            var saveMap = new ToolStripMenuItem("Save", null, new EventHandler(gridBox.SaveMap)); // Save map
+            var saveMap = new ToolStripMenuItem("Save", null, (sender, e) => { gridBox.SaveMap(CurrentWorkingFile); }); // Save map
+            // We call SaveMap with null to indicate that we want to select a new file to save into.
+            var saveMapAs = new ToolStripMenuItem("Save as", null, (sender, e) => { gridBox.SaveMap(null); });
             var exportBitmap = new ToolStripMenuItem("Export bitmap", null, new EventHandler(gridBox.ExportBitmap));
             var exitApp = new ToolStripMenuItem("Exit", null, (sender, e) => { this.Close(); }); // Exit app
-            ToolStripMenuItem[] items = new ToolStripMenuItem[] { loadMap, saveMap, exportBitmap, exitApp };
+            ToolStripMenuItem[] items = new ToolStripMenuItem[] { loadMap, saveMap, saveMapAs, exportBitmap, exitApp };
             fileMenu.DropDownItems.AddRange(items);
             MainMenuStrip.Items.Add(fileMenu);
 

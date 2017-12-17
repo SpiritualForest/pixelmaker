@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using System.IO; // For BinaryReader and BinaryWriter classes (required for saving and loading)
 using Gui; // For Square class and MouseEvent enum
 
 namespace Gui {
@@ -271,13 +272,19 @@ namespace Gui {
                 /* Redraw only the specific rectangle (individual square). */
                 Square squareObj = GetSquare(clipRectangle.X, clipRectangle.Y);
                 if (squareObj != null) {
+                    // When a mouse move event is detected on the GridBox,
+                    // it will call the square object's MouseEnter or MouseLeave event,
+                    // depending on whether the square's area was just entered or left.
+                    // The square sets its own MouseEvent property to the appropriate event type.
+                    // These two events determine which colour we use to draw the square
+                    // with which we're interacting.
                     SolidBrush paintBrush;
                     if (squareObj.MouseEvent == MouseEventType.Enter) {
-                        // Enter
+                        // Enter event. The square should be repainted to the GridBox's SelectedColor colour.
                         paintBrush = new SolidBrush(this.SelectedColor);
                     }
                     else {
-                        // Leave
+                        // Leave event. The square should be repainted to its own BackColor colour.
                         paintBrush = new SolidBrush(squareObj.BackColor);
                     }
                     // Fill the rectangle with the specified colour
@@ -288,7 +295,7 @@ namespace Gui {
                 // Redraw an area that contains several squares, but not the entire grid.
                 // Sample: {X=0,Y=0,Width=95,Height=87}
                 // Starting at the square found at X,Y, we have to redraw Width*Height squares.
-                int y = clipRectangle.Y / SquareSideLength, x = clipRectangle.X / SquareSideLength;
+                int y = clipRectangle.Y / SquareSideLength, x = clipRectangle.X / SquareSideLength; // Index numbers to locate squares
                 int originalX = x;
                 for(int verticalSquares = -1; verticalSquares <= clipRectangle.Height / SquareSideLength; verticalSquares++) {
                     for(int horizontalSquares = -1; horizontalSquares <= clipRectangle.Width / SquareSideLength; horizontalSquares++) {
@@ -298,7 +305,7 @@ namespace Gui {
                             e.Graphics.FillRectangle(paintBrush, squareObj.AreaRectangle);
                         }
                         catch(ArgumentOutOfRangeException) {
-                            Console.WriteLine("OnPaintBackground on non existing square.");
+                            Console.WriteLine("Tried to repaint non existent square as part of the area: {0}", clipRectangle);
                         }
                         finally {
                             x++;
@@ -432,13 +439,124 @@ namespace Gui {
             if (openFileDialog.ShowDialog() == DialogResult.OK) {
                 // A file was successfully selected by the user.
                 string fileName = openFileDialog.FileName;
+                ParentWindow.CurrentWorkingFile = fileName;
+                // TOCTTOU
+                if (!File.Exists(fileName)) {
+                    MessageBox.Show("No such file: {0}", fileName);
+                    return;
+                }
+                // FIXME: Perform access checking.
+                // Now we can proceed with reading and loading the file
+                using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
+                    /* The first 10 bytes are the header, in the following order:
+                     * MainWindow width, MainWindow height,
+                     * GridBox width, GridBox height,
+                     * Square side length.
+                     * Each one is an unsigned int16 type.
+                     * We cast them to an int, because in the program we use int, rather than uint16.
+                     * We only used uint16 to save space on the disk. */
+                    // MainWindow size
+                    int mainWindowWidth = (int)reader.ReadUInt16();
+                    int mainWindowHeight = (int)reader.ReadUInt16();
+                    // GridBox size
+                    int gridBoxWidth = (int)reader.ReadUInt16();
+                    int gridBoxHeight = (int)reader.ReadUInt16();
+                    // Square side length
+                    int squareSideLength = (int)reader.ReadUInt16();
+
+                    // Set the window, gridbox, and square sizes
+                    Size mainWindowSize = new Size(mainWindowWidth, mainWindowHeight);
+                    ParentWindow.Size = mainWindowSize;
+                    Size gridBoxSize = new Size(gridBoxWidth, gridBoxHeight);
+                    this.Size = gridBoxSize;
+                    SquareSideLength = squareSideLength;
+
+                    // Now read the colours and form a list of squares.
+                    while(reader.BaseStream.Position != reader.BaseStream.Length) {
+                        List<List<Square>> squareObjects = new List<List<Square>>();
+                        for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
+                            List<Square> sublist = new List<Square>();
+                            for(int x = 0; x < gridBoxWidth; x += squareSideLength) {
+                                Square squareObj = new Square(this, x, y);
+                                // Read 4 bytes from the map file.
+                                // These bytes represent ARGB values, from which we will then form the square's colour code.
+                                byte A = reader.ReadByte();
+                                byte R = reader.ReadByte();
+                                byte G = reader.ReadByte();
+                                byte B = reader.ReadByte();
+                                squareObj.BackColor = Color.FromArgb(A, R, G, B);
+                                sublist.Add(squareObj);
+                            }
+                            squareObjects.Add(sublist);
+                        }
+                        Squares = squareObjects;
+                    }
+                    // Redraw the grid.
+                    Invalidate();
+                }
             }
         }
 
-        internal void SaveMap(object sender, EventArgs e) {
+        internal void SaveMap(string fileName) {
             /* Saves the grid into a map file. */
             // TODO: Use the build in SaveFileDialog();
             Console.WriteLine("SaveMap called.");
+            if (fileName == null) {
+                // No filename given.
+                // We must therefore prompt the user to select a file into which we should save the map.
+                SaveFileDialog saveFileDialog = new SaveFileDialog();
+                saveFileDialog.InitialDirectory = Environment.CurrentDirectory;
+                saveFileDialog.RestoreDirectory = true;
+                saveFileDialog.Filter = "PixelMaker files (*.pxl)|*.pxl";
+                if (saveFileDialog.ShowDialog() == DialogResult.OK) {
+                    // A file was successfully selected.
+                    fileName = saveFileDialog.FileName;
+                }
+                else {
+                    // No file was selected. Abort.
+                    return;
+                }
+            }
+            // If execution reaches this stage, it means that a file was successfully selected.
+            ParentWindow.CurrentWorkingFile = fileName;
+            /* File structure.
+             * Header (in order of writing):
+             * Window width and height (pixels), GridBox width and height (pixels), square side length (pixels),
+             * numbers of y axis squares (List indices), number of x axis squares (List indices).
+             * All headers are UInt16 in order to save some space. In practice, we could probably go even lower, say 12 bits,
+             * but C# does not natively provide this kind of data type (as far as I know).
+             *
+             * File contents:
+             * A, R, G, and B colour values of each square. (byte data type. 1 byte per value, 4 bytes total per square)
+             * We do not write the square's position. This will be calculated when loading the map file.
+             */
+            UInt16[] headers = new UInt16[] { 
+                // MainWindow size
+                (UInt16)ParentWindow.Width, (UInt16)ParentWindow.Height, 
+                // GridBox size
+                (UInt16)this.Width, (UInt16)this.Height, 
+                // Square size
+                (UInt16)this.SquareSideLength,
+            };
+            // FIXME: Perform access checking.
+            using (BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
+                // Write the headers first. A total of 10 bytes. (5 headers, 2 bytes each)
+                foreach(UInt16 header in headers) {
+                    writer.Write(header);
+                }
+                // Write the squares.
+                foreach(List<Square> sublist in Squares) {
+                    foreach(Square squareObj in sublist) {
+                        /* Each colour consists of A, R, G, and B values.
+                         * Each of these values is a single byte (0 - 255), totalling 4 bytes per square. */
+                        Color color = squareObj.BackColor;
+                        byte[] argb = new byte[] { color.A, color.R, color.G, color.B };
+                        foreach(byte byteValue in argb) {
+                            writer.Write(byteValue);
+                        }
+                    }
+                }
+            }
         }
 
         internal void ExportBitmap(object sender, EventArgs e) {
