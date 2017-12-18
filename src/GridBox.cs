@@ -449,6 +449,11 @@ namespace Gui {
                 // Now we can proceed with reading and loading the file
                 try {
                     using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
+                        if (reader.BaseStream.Length < 10) {
+                            // Malformed or otherwise erroneus file. Can't even read header.
+                            MessageBox.Show("Error. Malformed file. Cannot read header.");
+                            return;
+                        }
                         /* The first 10 bytes are the header, in the following order:
                         * MainWindow width, MainWindow height,
                         * GridBox width, GridBox height,
@@ -465,6 +470,24 @@ namespace Gui {
                         // Square side length
                         int squareSideLength = (int)reader.ReadUInt16();
 
+                        // Now we make sure everything is fine before going any further.
+                        // First we make sure the GridBox size we just read is divisible by the square side length we read.
+                        if (gridBoxWidth % squareSideLength != 0 || gridBoxHeight % squareSideLength != 0) {
+                            // Error. GridBox size is not divisible by the given square side length.
+                            MessageBox.Show("Cannot open file: GridBox size does not match required amount of squares.");
+                            return;
+                        }
+                        // Now we make sure that the total number of squares 
+                        // matches the number of remaining bytes in the file.
+                        // 4 total bytes per square.
+                        int totalSquares = (gridBoxWidth / squareSideLength) * (gridBoxHeight / squareSideLength);
+                        if (totalSquares != (reader.BaseStream.Length - reader.BaseStream.Position) / 4) {
+                            // No match. Error.
+                            // FIXME: Change these error message descriptions to something better
+                            MessageBox.Show("Cannot open file: File size does not match required amount of squares.");
+                            return;
+                        }
+                        // Checks passed. We can proceed.
                         // Set the window, gridbox, and square sizes
                         Size mainWindowSize = new Size(mainWindowWidth, mainWindowHeight);
                         ParentWindow.Size = mainWindowSize;
@@ -496,8 +519,8 @@ namespace Gui {
                         Invalidate();
                     }
                 }
-                catch(UnauthorizedAccessException) {
-                    MessageBox.Show("Could not open file. Permission denied.");
+                catch(Exception ex) when(ex is UnauthorizedAccessException || ex is EndOfStreamException) {
+                    MessageBox.Show(string.Format("Could not open file: {0}", ex.Message));
                 }
             }
         }
