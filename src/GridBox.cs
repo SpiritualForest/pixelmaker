@@ -449,18 +449,25 @@ namespace Gui {
                 // Now we can proceed with reading and loading the file
                 try {
                     using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
-                        if (reader.BaseStream.Length < 10) {
+                        if (reader.BaseStream.Length < 13) {
                             // Malformed or otherwise erroneus file. Can't even read header.
                             MessageBox.Show("Error. Malformed file. Cannot read header.");
                             return;
                         }
-                        /* The first 10 bytes are the header, in the following order:
+                        /* The first 13 bytes are the header, in the following order:
+                        * The string "PXL",
                         * MainWindow width, MainWindow height,
                         * GridBox width, GridBox height,
                         * Square side length.
                         * Each one is an unsigned int16 type.
                         * We cast them to an int, because in the program we use int, rather than uint16.
                         * We only used uint16 to save space on the disk. */
+                        string pxl = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(3));
+                        if (pxl != "PXL") {
+                            // This is not a valid PixelMaker file.
+                            MessageBox.Show("Error. The file is not a valid PixelMaker map file.");
+                            return;
+                        }
                         // MainWindow size
                         int mainWindowWidth = (int)reader.ReadUInt16();
                         int mainWindowHeight = (int)reader.ReadUInt16();
@@ -496,25 +503,23 @@ namespace Gui {
                         SquareSideLength = squareSideLength;
 
                         // Now read the colours and form a list of squares.
-                        while(reader.BaseStream.Position != reader.BaseStream.Length) {
-                            List<List<Square>> squareObjects = new List<List<Square>>();
-                            for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
-                                List<Square> sublist = new List<Square>();
-                                for(int x = 0; x < gridBoxWidth; x += squareSideLength) {
-                                    Square squareObj = new Square(this, x, y);
-                                    // Read 4 bytes from the map file.
-                                    // These bytes represent ARGB values, from which we will then form the square's colour code.
-                                    byte A = reader.ReadByte();
-                                    byte R = reader.ReadByte();
-                                    byte G = reader.ReadByte();
-                                    byte B = reader.ReadByte();
-                                    squareObj.BackColor = Color.FromArgb(A, R, G, B);
-                                    sublist.Add(squareObj);
-                                }
-                                squareObjects.Add(sublist);
+                        List<List<Square>> squareObjects = new List<List<Square>>();
+                        for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
+                            List<Square> sublist = new List<Square>();
+                            for(int x = 0; x < gridBoxWidth; x += squareSideLength) {
+                                Square squareObj = new Square(this, x, y);
+                                // Read 4 bytes from the map file.
+                                // These bytes represent ARGB values, from which we will then form the square's colour code.
+                                byte A = reader.ReadByte();
+                                byte R = reader.ReadByte();
+                                byte G = reader.ReadByte();
+                                byte B = reader.ReadByte();
+                                squareObj.BackColor = Color.FromArgb(A, R, G, B);
+                                sublist.Add(squareObj);
                             }
-                            Squares = squareObjects;
+                            squareObjects.Add(sublist);
                         }
+                        Squares = squareObjects;
                         // Redraw the grid.
                         Invalidate();
                     }
@@ -547,6 +552,7 @@ namespace Gui {
             ParentWindow.CurrentWorkingFile = fileName;
             /* File structure.
              * Header (in order of writing):
+             * 3 byte string, which forms the word "PXL",
              * Window width and height (pixels), GridBox width and height (pixels), square side length (pixels),
              * numbers of y axis squares (List indices), number of x axis squares (List indices).
              * All headers are UInt16 in order to save some space. In practice, we could probably go even lower, say 12 bits,
@@ -566,7 +572,8 @@ namespace Gui {
             };
             try {
                 using (BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
-                    // Write the headers first. A total of 10 bytes. (5 headers, 2 bytes each)
+                    // Write the headers first. A total of 13 bytes. (a 3 byte "PXL" string, 5 headers, 2 bytes each)
+                    writer.Write(System.Text.Encoding.UTF8.GetBytes("PXL"));
                     foreach(UInt16 header in headers) {
                         writer.Write(header);
                     }
