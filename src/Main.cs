@@ -32,7 +32,8 @@ class PixelMaker {
         }
         // Create a new main window object
         MainWindow mainWindow = new MainWindow();
-        mainWindow.Text = string.Format("PixelMaker v{0}", version);
+        mainWindow.Version = version;
+        mainWindow.Text = string.Format("PixelMaker v{0} - Untitled.pxl", version);
 
         // Run the application
         Application.Run(mainWindow);

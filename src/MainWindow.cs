@@ -14,7 +14,7 @@ namespace Gui {
     class ColorBox : Control {
         
         MainWindow ParentWindow { get; set; }
-        
+     
         public ColorBox(MainWindow parentWindow) {
             this.SetStyle(ControlStyles.UserPaint, true);
             ParentWindow = parentWindow;
@@ -67,6 +67,10 @@ namespace Gui {
         
         // Border size in pixels
 	internal int BorderInformation = SystemInformation.Border3DSize.Width * (int)Math.Pow(SystemInformation.Border3DSize.Width, 2);
+        
+        // Current map file (loaded or created)
+        private string _currentWorkingFile;
+
         // Hexadecimal values for all the colours we support out of the box.
         private string[] PredefinedColors = new string[] {
             "#ffff8080", "#ffffff80", "#ff80ff80", "#ff00ff80", "#ff80ffff", "#ff0080ff", "#ffff80c0", "#ffff80ff",
@@ -78,7 +82,16 @@ namespace Gui {
         };
 
         private ColorDialog colorDialog = new ColorDialog(); // Used primarily for creating custom colours
-        internal string CurrentWorkingFile { get; set; }
+        
+        internal string CurrentWorkingFile {
+            get { return _currentWorkingFile; }
+            set {
+                _currentWorkingFile = value;
+                Text = string.Format("PixelMaker v{0} - {1}", Version, value);
+            }
+        }
+        
+        internal string Version { get; set; } // Our version
 
         internal MainWindow() {
             // Set Size and center the window
