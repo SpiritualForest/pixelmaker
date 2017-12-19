@@ -1,6 +1,6 @@
 /* MenuEvents.cs.
  * This file contains the methods that respond to menu events from the MainWindow.
- * It implemented the saving and loading of GridBox maps,
+ * It implements the saving and loading of GridBox maps,
  * and the exporting of the GridBox contents into a bitmap image. */
 
 using System;
@@ -8,15 +8,20 @@ using System.IO; // For BinaryReader and BinaryWriter
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Linq;
 
 namespace Gui {
     partial class GridBox : Control {
-        #region MenuEventHandlers
+        
+        // We create new instances of these here
+        // so that we can keep the directories chosen by the user.
+        private SaveFileDialog saveFileDialog = new SaveFileDialog();
+        private OpenFileDialog openFileDialog = new OpenFileDialog();
+
         internal void LoadMap(object sender, EventArgs e) {
             /* Loads a map file into the grid. */
-            OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.InitialDirectory = Environment.CurrentDirectory;
-            openFileDialog.RestoreDirectory = true;
+            openFileDialog.RestoreDirectory = false;
             openFileDialog.Filter = "PixelMaker files (*.pxl)|*.pxl";
             if (openFileDialog.ShowDialog() == DialogResult.OK) {
                 // A file was successfully selected by the user.
@@ -121,9 +126,8 @@ namespace Gui {
             if (fileName == null) {
                 // No filename given.
                 // We must therefore prompt the user to select a file into which we should save the map.
-                SaveFileDialog saveFileDialog = new SaveFileDialog();
                 saveFileDialog.InitialDirectory = Environment.CurrentDirectory;
-                saveFileDialog.RestoreDirectory = true;
+                saveFileDialog.RestoreDirectory = false;
                 saveFileDialog.Filter = "PixelMaker files (*.pxl)|*.pxl";
                 saveFileDialog.FileName = "Untitled";
                 if (saveFileDialog.ShowDialog() == DialogResult.OK) {
@@ -177,8 +181,8 @@ namespace Gui {
                 Console.WriteLine("Saved map file: {0}", fileName);
                 ParentWindow.CurrentWorkingFile = fileName;
             }
-            catch(UnauthorizedAccessException) {
-                MessageBox.Show("Cannot save file. Permission denied.");
+            catch(UnauthorizedAccessException ex) {
+                MessageBox.Show(string.Format("Cannot save file: {0}", ex.Message));
             }
         }
 
@@ -187,6 +191,7 @@ namespace Gui {
             SaveFileDialog saveFileDialog = new SaveFileDialog();
             saveFileDialog.Filter = "Bitmap images (*.bmp)|*.bmp";
             saveFileDialog.InitialDirectory = Environment.CurrentDirectory;
+            saveFileDialog.RestoreDirectory = true;
             saveFileDialog.FileName = "Untitled";
             if (saveFileDialog.ShowDialog() != DialogResult.OK) {
                 // A file was not successfully selected.
@@ -194,68 +199,89 @@ namespace Gui {
             }
             // Now we can start writing the file
             string fileName = saveFileDialog.FileName;
+            
+            // First, try to create a dummy file and see if we get an exception or not.
             try {
-                using(BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
-                    /* Write BMP headers */
-                    // File header, first 14 bytes.
-                    writer.Write(System.Text.Encoding.UTF8.GetBytes("BM")); // "BM"
-                    // 54 byte header, 4 bytes per square.
-                    int totalBytes = 54 + ((Squares.Count * 10 * Squares[0].Count * 10) * 3);
-                    Console.WriteLine(totalBytes);
-                    writer.Write(totalBytes); // Bitmap size in bytes
-                    writer.Write(0); // Reserved space. 4 byte integer, must be 0.
-                    writer.Write(54); // Offset to actual pixel data
-
-                    // Image data header, must be at least 40 bytes.
-                    writer.Write(40); // Size of data header. Must be at least 40.
-                    writer.Write(Squares[0].Count * SquareSideLength); // Width of bitmap in pixels
-                    writer.Write(Squares.Count * SquareSideLength); // Height of bitmap in pixels.
-                    writer.Write((UInt16)1); // Number of colour planes
-                    writer.Write((UInt16)24); // Number of bits per pixel. Sets colour mode. 24 bits (RGB).
-                    writer.Write(0); // Set compression to none.
-                    writer.Write(0); // Pixel data size set to 0, because it's uncompressed.
-                    writer.Write(0); // Horizontal resolution per meter. 0 indicates no preference.
-                    writer.Write(0); // Vertical resolution per meter. 0 indicates no preference.
-                    writer.Write(0); // Number of colours used. Very uncommon to encounter non-zero value here.
-                    writer.Write(0); // Number of important colours. 0 indicates that all colours are important.
-
-                    // Pixel data. We use 3 bytes (RGB) to represent each pixel.
-                    int rowLength = (Squares[0].Count * SquareSideLength) * 3; // In pixels
-                    int padding = 0; // How many null bytes to pad
-
-                    foreach(List<Square> sublist in Squares) {
-                        /* We get the RGB values for each square in this sublist,
-                         * add them to the pixels array, and then call writer.Write(pixels)
-                         * SquareSideLength times */
-                        byte[] pixels = new byte[rowLength + padding];
-                        Console.WriteLine(pixels.Length);
-                        int square = 0;
-                        foreach(Square squareObj in sublist) {
-                            Color color = squareObj.BackColor;
-                            for(int i = 0; i < SquareSideLength*3; i++) {
-                                pixels[i*square] = color.R;
-                                pixels[(i*square)+1] = color.G;
-                                pixels[(i*square)+2] = color.B;
-                            }
-                            square++;
-                        }
-                        if (padding > 0) {
-                            Console.WriteLine("Padding required: {0}", padding);
-                            for(int p = pixels.Length - padding; p < pixels.Length; p++) {
-                                pixels[p] = (byte)0;
-                            }
-                        }
-                        // Now write it SquareSideLength times.
-                        for(int i = 0; i < SquareSideLength; i++) {
-                            writer.Write(pixels);
-                        }
-                    }
-                }
+                File.Create(fileName);
+                File.Delete(fileName);
             }
             catch(UnauthorizedAccessException ex) {
-                MessageBox.Show(string.Format("Could not export file: {0}", ex.Message));
+                // No write access. Abort.
+                MessageBox.Show(string.Format("Cannot export file: {0}", ex.Message));
+                return;
+            }
+
+            // If execution reached here, we have write access.
+            // First we create all the pixel data.
+            // TODO: Dialog box with progress bar that shows the file creating progress.
+
+            int rowLength = Squares[0].Count * SquareSideLength * 4; // Width * SquareSideLength * 4 bytes per pixel
+            // Check if we need to pad
+            int padding = 0;
+            if (rowLength % 4 != 0) {
+                int paddedLength = rowLength - (rowLength % 4) + 4;
+                padding = paddedLength - rowLength;
+            }
+            // List of lists of bytes. Each byte represents one part of a colour's RGB value.
+            List<List<byte>> pixelData = new List<List<byte>>();
+            for(int y = Squares.Count - 1; y >= 0; y--) {
+                List<Square> sublist = Squares[y];
+                /* Now we obtain the ARGB colour values of every square on this sublist. */
+                List<byte> ARGB = new List<byte>();
+                foreach(Square squareObj in sublist) {
+                    Color color = squareObj.BackColor;
+                    for(int x = 0; x < SquareSideLength; x++) {
+                        /* Because each square's width is <SquareSideLength>,
+                         * and each pixel in the bitmap file is represented by the square's ARGB colour value,
+                         * We have to add those values <SquareSideLength> times for each square,
+                         * to account for every individual pixel of it. */
+                        // The colour bytes are actually ordered in reverse in bitmap images.
+                        ARGB.AddRange(new byte[]{ color.B, color.G, color.R, color.A });
+                    }
+                }
+                if (padding > 0) {
+                    for(int i = 0; i < padding; i++) {
+                        ARGB.Add(0);
+                    }
+                }
+                /* Now we have to add these colours values to the pixelData list.
+                 * Since the square's height in pixels is <SquareSideLength>,
+                 * we have to add the row's data that amount of times.
+                 * Each ARGB row actually represents the data of ALL squares in the Squares[y] sublist. */
+                for(int i = 0; i < SquareSideLength; i++) {
+                    pixelData.Add(ARGB);
+                }
+            }
+
+            // Pixel data creation complete. Now we actually write it to the file.
+            using(BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
+                /* Write BMP headers */
+                // File header, first 14 bytes.
+                writer.Write(System.Text.Encoding.UTF8.GetBytes("BM")); // "BM"
+                // 54 byte header
+                int totalBytes = 54 + (pixelData.Count * pixelData[0].Count);
+                writer.Write(totalBytes); // Bitmap size in bytes
+                writer.Write(0); // Reserved space. 4 byte integer, must be 0.
+                writer.Write(54); // Offset to actual pixel data
+
+                // Image data header, must be at least 40 bytes.
+                writer.Write(40); // Size of data header. Must be at least 40.
+                writer.Write(pixelData[0].Count / 4); // Width of bitmap in pixels
+                writer.Write(pixelData.Count); // Height of bitmap in pixels.
+                writer.Write((UInt16)1); // Number of colour planes
+                writer.Write((UInt16)32); // Number of bits per pixel. Sets colour mode. 32 bits (ARGB).
+                writer.Write(0); // Set compression to none.
+                writer.Write(0); // Pixel data size set to 0, because it's uncompressed.
+                writer.Write(0); // Horizontal resolution per meter. 0 indicates no preference.
+                writer.Write(0); // Vertical resolution per meter. 0 indicates no preference.
+                writer.Write(0); // Number of colours used. Very uncommon to encounter non-zero value here.
+                writer.Write(0); // Number of important colours. 0 indicates that all colours are important.
+
+                // Now write the actual pixel data.
+                foreach(List<byte> bytes in pixelData) {
+                    writer.Write(bytes.ToArray());
+                }
             }
         }
-#endregion
     }
 }
