@@ -8,7 +8,6 @@ using System.IO; // For BinaryReader and BinaryWriter
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Drawing;
-using System.Linq;
 
 namespace Gui {
     partial class GridBox : Control {
@@ -27,11 +26,6 @@ namespace Gui {
                 // A file was successfully selected by the user.
                 string fileName = openFileDialog.FileName;
                 ParentWindow.CurrentWorkingFile = fileName;
-                // TOCTTOU
-                if (!File.Exists(fileName)) {
-                    MessageBox.Show("No such file: {0}", fileName);
-                    return;
-                }
                 
                 // Now we can proceed with reading and loading the file
                 try {
@@ -115,7 +109,7 @@ namespace Gui {
                         Console.WriteLine("Loaded map file: {0}", fileName);
                     }
                 }
-                catch(UnauthorizedAccessException ex) {
+                catch(Exception ex) {
                     MessageBox.Show(string.Format("Could not open file: {0}", ex.Message));
                 }
             }
@@ -181,7 +175,7 @@ namespace Gui {
                 Console.WriteLine("Saved map file: {0}", fileName);
                 ParentWindow.CurrentWorkingFile = fileName;
             }
-            catch(UnauthorizedAccessException ex) {
+            catch(Exception ex) {
                 MessageBox.Show(string.Format("Cannot save file: {0}", ex.Message));
             }
         }
@@ -200,29 +194,12 @@ namespace Gui {
             // Now we can start writing the file
             string fileName = saveFileDialog.FileName;
             
-            // First, try to create a dummy file and see if we get an exception or not.
-            try {
-                File.Create(fileName);
-                File.Delete(fileName);
-            }
-            catch(UnauthorizedAccessException ex) {
-                // No write access. Abort.
-                MessageBox.Show(string.Format("Cannot export file: {0}", ex.Message));
-                return;
-            }
-
-            // If execution reached here, we have write access.
             // First we create all the pixel data.
             // TODO: Dialog box with progress bar that shows the file creating progress.
+            
+            Console.WriteLine("Preparing pixel data...");
 
-            int rowLength = Squares[0].Count * SquareSideLength * 4; // Width * SquareSideLength * 4 bytes per pixel
-            // Check if we need to pad
-            int padding = 0;
-            if (rowLength % 4 != 0) {
-                int paddedLength = rowLength - (rowLength % 4) + 4;
-                padding = paddedLength - rowLength;
-            }
-            // List of lists of bytes. Each byte represents one part of a colour's RGB value.
+            // List of lists of bytes. Each byte represents one part of a colour's ARGB value.
             List<List<byte>> pixelData = new List<List<byte>>();
             for(int y = Squares.Count - 1; y >= 0; y--) {
                 List<Square> sublist = Squares[y];
@@ -239,11 +216,6 @@ namespace Gui {
                         ARGB.AddRange(new byte[]{ color.B, color.G, color.R, color.A });
                     }
                 }
-                if (padding > 0) {
-                    for(int i = 0; i < padding; i++) {
-                        ARGB.Add(0);
-                    }
-                }
                 /* Now we have to add these colours values to the pixelData list.
                  * Since the square's height in pixels is <SquareSideLength>,
                  * we have to add the row's data that amount of times.
@@ -254,33 +226,40 @@ namespace Gui {
             }
 
             // Pixel data creation complete. Now we actually write it to the file.
-            using(BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
-                /* Write BMP headers */
-                // File header, first 14 bytes.
-                writer.Write(System.Text.Encoding.UTF8.GetBytes("BM")); // "BM"
-                // 54 byte header
-                int totalBytes = 54 + (pixelData.Count * pixelData[0].Count);
-                writer.Write(totalBytes); // Bitmap size in bytes
-                writer.Write(0); // Reserved space. 4 byte integer, must be 0.
-                writer.Write(54); // Offset to actual pixel data
+            try {
+                using(BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
+                    /* Write BMP headers */
+                    // File header, first 14 bytes.
+                    writer.Write(System.Text.Encoding.UTF8.GetBytes("BM")); // "BM"
+                    // 54 byte header
+                    int totalBytes = 54 + (pixelData.Count * pixelData[0].Count);
+                    writer.Write(totalBytes); // Bitmap size in bytes
+                    writer.Write(0); // Reserved space. 4 byte integer, must be 0.
+                    writer.Write(54); // Offset to actual pixel data
 
-                // Image data header, must be at least 40 bytes.
-                writer.Write(40); // Size of data header. Must be at least 40.
-                writer.Write(pixelData[0].Count / 4); // Width of bitmap in pixels
-                writer.Write(pixelData.Count); // Height of bitmap in pixels.
-                writer.Write((UInt16)1); // Number of colour planes
-                writer.Write((UInt16)32); // Number of bits per pixel. Sets colour mode. 32 bits (ARGB).
-                writer.Write(0); // Set compression to none.
-                writer.Write(0); // Pixel data size set to 0, because it's uncompressed.
-                writer.Write(0); // Horizontal resolution per meter. 0 indicates no preference.
-                writer.Write(0); // Vertical resolution per meter. 0 indicates no preference.
-                writer.Write(0); // Number of colours used. Very uncommon to encounter non-zero value here.
-                writer.Write(0); // Number of important colours. 0 indicates that all colours are important.
+                    // Image data header, must be at least 40 bytes.
+                    writer.Write(40); // Size of data header. Must be at least 40.
+                    writer.Write(pixelData[0].Count / 4); // Width of bitmap in pixels
+                    writer.Write(pixelData.Count); // Height of bitmap in pixels.
+                    writer.Write((UInt16)1); // Number of colour planes
+                    writer.Write((UInt16)32); // Number of bits per pixel. Sets colour mode. 32 bits (ARGB).
+                    writer.Write(0); // Set compression to none.
+                    writer.Write(0); // Pixel data size set to 0, because it's uncompressed.
+                    writer.Write(0); // Horizontal resolution per meter. 0 indicates no preference.
+                    writer.Write(0); // Vertical resolution per meter. 0 indicates no preference.
+                    writer.Write(0); // Number of colours used. Very uncommon to encounter non-zero value here.
+                    writer.Write(0); // Number of important colours. 0 indicates that all colours are important.
 
-                // Now write the actual pixel data.
-                foreach(List<byte> bytes in pixelData) {
-                    writer.Write(bytes.ToArray());
+                    // Now write the actual pixel data.
+                    foreach(List<byte> bytes in pixelData) {
+                        writer.Write(bytes.ToArray());
+                    }
                 }
+                MessageBox.Show("File successfully exported.");
+            }
+            catch(Exception ex) {
+                Console.WriteLine("Error writing bitmap file: {0}", ex.Message);
+                MessageBox.Show(string.Format("Could not export file: {0}", ex.Message));
             }
         }
     }
