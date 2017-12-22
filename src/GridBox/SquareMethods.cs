@@ -10,7 +10,7 @@ using Gui; // For Square class
 
 namespace Gui {
     partial class GridBox : Control {
-        #region SquareMethods
+
         internal void SetBackgroundColor(Color backColor, bool setAll = true) {
             /* Set the BackColor property of all the squares to <backColor>.
              * We use this method when we want to change the background color of the grid,
@@ -178,6 +178,59 @@ namespace Gui {
                 }
             }
         }
-#endregion
+
+        private void MovePaintedSquares(Keys direction) {
+            /* Moves all the squares in the PaintedSquares dictionary
+             * one step in the given direction. */
+            Console.WriteLine("MovePaintedSquares() called with direction: {0}", direction);
+
+            Dictionary<Square, Color> pendingSquares = new Dictionary<Square, Color>();
+            foreach(KeyValuePair<Point, Square> pair in PaintedSquares) {
+                Square squareObj = pair.Value;
+                Point location = pair.Key;
+                int x = location.X / SquareSideLength, y = location.Y / SquareSideLength; // Index numbers
+                /* Now we have to find out the adjacent square object based on the direction of movement.
+                 * We try to add it to the pendingSquares dictionary.
+                 * Its new colour should be the currently processed Square object's BackColor. */
+                try {
+                    Square adjacentSquare;
+                    if (direction == Keys.Right) {
+                        // x+1
+                        adjacentSquare = Squares[y][x+1];
+                    }
+                    else if (direction == Keys.Left) {
+                        // x-1
+                        adjacentSquare = Squares[y][x-1];
+                    }
+                    else if (direction == Keys.Down) {
+                        // y+1
+                        adjacentSquare = Squares[y+1][x];
+                    }
+                    else {
+                        // Up. y-1
+                        adjacentSquare = Squares[y-1][x];
+                    }
+                    // Add the adjacent square to the pending squares dictionary
+                    // and reset the current square's BackColor property to DefaultBackgroundColor
+                    pendingSquares.Add(adjacentSquare, squareObj.BackColor);
+                    squareObj.BackColor = DefaultBackgroundColor;
+                    Invalidate(squareObj.AreaRectangle);
+                }
+                catch(Exception ex) {
+                    Console.WriteLine("MovePaintedSquares exception: {0}", ex.Message);
+                }
+            }
+            // Clear the PaintedSquares dictionary.
+            PaintedSquares = new Dictionary<Point, Square>();
+            
+            /* Now we actually set the BackColor for all the pending squares,
+             * and then redraw the grid. */
+            foreach(KeyValuePair<Square, Color> pair in pendingSquares) {
+                Square squareObj = pair.Key;
+                squareObj.BackColor = pair.Value;
+                PaintedSquares.Add(squareObj.Location, squareObj);
+                Invalidate(squareObj.AreaRectangle);
+            }
+        }
     }
 }

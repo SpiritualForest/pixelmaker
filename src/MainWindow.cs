@@ -11,57 +11,6 @@ using Gui; // For GridBox control
  */
 
 namespace Gui {
-    class ColorBox : Control {
-        
-        MainWindow ParentWindow { get; set; }
-     
-        public ColorBox(MainWindow parentWindow) {
-            this.SetStyle(ControlStyles.UserPaint, true);
-            ParentWindow = parentWindow;
-        }
-
-        protected override void OnPaint(PaintEventArgs e) {
-            Graphics graphicsObj = e.Graphics;
-            /* First we fill the entire ColorBox's rectangle with its background colour.
-             * Then we draw the 3D border using two grey lines. */
-            // Rectangle at Location 0,0, fill Width,Height
-            Rectangle areaRectangle = new Rectangle(0, 0, Width, Height);
-            SolidBrush paintBrush = new SolidBrush(BackColor);
-            graphicsObj.FillRectangle(paintBrush, areaRectangle);
-            
-            // Now draw the grey border
-            // First the outer, brighter ones
-            Pen greyPen = new Pen(Color.FromArgb(169, 169, 169));
-
-            // Horizontal (x axis)
-            graphicsObj.DrawLine(greyPen, 0, 0, Width, 0);
-            // Vertical (y axis)
-            graphicsObj.DrawLine(greyPen, 0, 0, 0, Height);
-
-            // Inner darker lines
-            greyPen.Color = Color.FromArgb(105, 105, 105);
-
-            // Horizontal (x axis)
-            graphicsObj.DrawLine(greyPen, 1, 1, Width, 1);
-            // Vertical (y axis)
-            graphicsObj.DrawLine(greyPen, 1, 1, 1, Height);
-        }
-
-        protected override void OnMouseClick(MouseEventArgs e) {
-            // A mouse click sets the GridBox's SelectedColor to this square's BackColor
-            if (Name != "BigBox") {
-                ParentWindow.GetGridBox().SelectedColor = BackColor;
-                ColorBox bigBox = (ColorBox)ParentWindow.Controls.Find("BigBox", true).FirstOrDefault();
-                if (bigBox == null) {
-                    // For some reason the big color box is null.
-                    Console.WriteLine("The big color box is null.");
-                    return;
-                }
-                bigBox.BackColor = BackColor;
-                bigBox.Invalidate();
-            }
-        }
-    }
 
     class MainWindow : Form {
         
@@ -172,7 +121,11 @@ namespace Gui {
             // We call SaveMap with null to indicate that we want to select a new file to save into.
             var saveMapAs = new ToolStripMenuItem("Save as", null, (sender, e) => { gridBox.SaveMap(null); });
             var exportBitmap = new ToolStripMenuItem("Export bitmap", null, new EventHandler(gridBox.ExportBitmap));
-            var exitApp = new ToolStripMenuItem("Exit", null, (sender, e) => { this.Close(); }); // Exit app
+            var exitApp = new ToolStripMenuItem("Exit", null, 
+                    (sender, e) => { 
+                        // TODO: Ask the user if they want to save the file in case the grid was modified and the file isn't saved.
+                        this.Close(); 
+                    }); // Exit app
             ToolStripMenuItem[] items = new ToolStripMenuItem[] { loadMap, saveMap, saveMapAs, exportBitmap, exitApp };
             fileMenu.DropDownItems.AddRange(items);
             MainMenuStrip.Items.Add(fileMenu);
@@ -204,9 +157,19 @@ namespace Gui {
             // Background clearing functionality
             viewMenu.DropDownItems.Add(
                     new ToolStripMenuItem("Clear grid", null, (sender, e) => {
-                        // Sets all the squares' background colour to White.
-                        // TODO: The user should be given a choice of which colour to use.
-                        gridBox.SetBackgroundColor(Color.White);
+                        // Sets all the squares' background colour to the default colour.
+                        gridBox.SetBackgroundColor(gridBox.DefaultBackgroundColor);
+                    })
+            );
+
+            // Set background colour, which does NOT affect the already painted squares.
+            viewMenu.DropDownItems.Add(
+                    new ToolStripMenuItem("Set background colour", null, (sender, e) => {
+                        if (colorDialog.ShowDialog() == DialogResult.OK) {
+                            // A "false" boolean parameter indicates that we don't want to set it for all squares,
+                            // only for the non painted ones.
+                            gridBox.SetBackgroundColor(colorDialog.Color, false);
+                        }
                     })
             );
             

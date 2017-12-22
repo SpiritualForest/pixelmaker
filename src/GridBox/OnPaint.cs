@@ -7,7 +7,7 @@ using System.Drawing;
 
 namespace Gui {
     partial class GridBox : Control {
-        #region PaintEventHandler
+
         protected override void OnPaint(PaintEventArgs e) {
             /* Redraw the entire grid. */
             Graphics graphicsObj = e.Graphics;
@@ -64,6 +64,5 @@ namespace Gui {
                 }
             } 
         }
-#endregion
     }
 }

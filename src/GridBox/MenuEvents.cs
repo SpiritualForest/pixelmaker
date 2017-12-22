@@ -84,6 +84,7 @@ namespace Gui {
                         SquareSideLength = squareSideLength;
 
                         // Now read the colours and form a list of squares.
+                        /* FIXME: Must add squares to PaintedSquares! */
                         List<List<Square>> squareObjects = new List<List<Square>>();
                         for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
                             List<Square> sublist = new List<Square>();

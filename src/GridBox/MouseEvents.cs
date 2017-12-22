@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace Gui {
     partial class GridBox : Control {
-        #region MouseEventHandlers
+
         protected override void OnMouseMove(MouseEventArgs e) {
             /* We have to check the position of the mouse on the grid (in pixels),
              * and obtain the Square object which resides in that position.
@@ -116,6 +116,5 @@ namespace Gui {
                 RightMouseDown = false;
             }
         }
-#endregion
     }
 }

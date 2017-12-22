@@ -11,11 +11,10 @@ using Gui; // For Square class and MouseEvent enum
 namespace Gui {
 
     partial class GridBox : Control {
-#region Fields
+
         private Size _size;
         private int _squareSideLength = 10;
-#endregion
-#region Properties
+
         private bool LeftMouseDown { get; set; } // Left button mouse is down (pressed)
         private bool RightMouseDown { get; set; } // Right mouse button is down (pressed)
 
@@ -80,8 +79,7 @@ namespace Gui {
             }
         }
         internal MainWindow ParentWindow { get; set; }
-#endregion
-#region Constructor
+
         internal GridBox() {
             // Set UserPaint to true, to indicate that we'll draw the control manually
             this.SetStyle(ControlStyles.UserPaint, true);
@@ -91,7 +89,6 @@ namespace Gui {
             this.SelectedColor = Color.White;
             this.PaintedSquares = new Dictionary<Point, Square>();
         }
-#endregion
 
 	internal void ResizeGridBox() {
             /* Resizes the GridBox.
