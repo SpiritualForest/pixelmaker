@@ -182,53 +182,86 @@ namespace Gui {
         private void MovePaintedSquares(Keys direction) {
             /* Moves all the squares in the PaintedSquares dictionary
              * one step in the given direction. */
+            Console.WriteLine("{0} key/value pairs in PaintedSquares.", PaintedSquares.Count);
             Console.WriteLine("MovePaintedSquares() called with direction: {0}", direction);
 
-            Dictionary<Square, Color> pendingSquares = new Dictionary<Square, Color>();
+            Dictionary<Point, Color> pendingSquares = new Dictionary<Point, Color>();
             foreach(KeyValuePair<Point, Square> pair in PaintedSquares) {
                 Square squareObj = pair.Value;
                 Point location = pair.Key;
-                int x = location.X / SquareSideLength, y = location.Y / SquareSideLength; // Index numbers
-                /* Now we have to find out the adjacent square object based on the direction of movement.
-                 * We try to add it to the pendingSquares dictionary.
-                 * Its new colour should be the currently processed Square object's BackColor. */
-                try {
-                    Square adjacentSquare;
-                    if (direction == Keys.Right) {
-                        // x+1
-                        adjacentSquare = Squares[y][x+1];
-                    }
-                    else if (direction == Keys.Left) {
-                        // x-1
-                        adjacentSquare = Squares[y][x-1];
-                    }
-                    else if (direction == Keys.Down) {
-                        // y+1
-                        adjacentSquare = Squares[y+1][x];
-                    }
-                    else {
-                        // Up. y-1
-                        adjacentSquare = Squares[y-1][x];
-                    }
-                    // Add the adjacent square to the pending squares dictionary
-                    // and reset the current square's BackColor property to DefaultBackgroundColor
-                    pendingSquares.Add(adjacentSquare, squareObj.BackColor);
+                int x = location.X / SquareSideLength;
+                int y = location.Y / SquareSideLength;
+                /* Now we simply calculate the next x,y Point 
+                 * based on the current square's location.
+                 * We treat this Point as index numbers, rather than pixels. */
+                if (direction == Keys.Right) {
+                    // Right. x+1
+                    x += 1;
+                }
+                else if (direction == Keys.Left) {
+                    // Left. x-1
+                    x -= 1;
+                }
+                else if (direction == Keys.Up) {
+                    // Up. y-1
+                    y -= 1;
+                }
+                else {
+                    // Down. y+1
+                    y += 1;
+                }
+                // Now collision checks. y goes first.
+                if (y >= Squares.Count || y < 0) {
+                    // Collision.
+                    return;
+                }
+                // And now x.
+                if (x >= Squares[0].Count || x < 0) {
+                    // Collision.
+                    return;
+                }
+                // Now we can create a new point and add it to the pendingSquares dictionary.
+                pendingSquares.Add(new Point(x * SquareSideLength, y * SquareSideLength), squareObj.BackColor);
+            }
+            if (pendingSquares.Count == 0) {
+                // No valid indices were added. Abort.
+                return;
+            }
+            // If execution reached here, there are new squares to paint.
+            /* First we check whether there are squares
+             * which are present in both PaintedSquares *and* pendingSquares.
+             * Squares which are NOT present in pendingSquares will be deleted
+             * from PaintedSquares. */
+            List<Point> keys = new List<Point>(PaintedSquares.Keys);
+            foreach(Point key in keys) {
+                int x = key.X;
+                int y = key.Y;
+                if (!pendingSquares.ContainsKey(new Point(x, y))) {
+                    // Not present in both. 
+                    // Set square to default background colour and delete it from PaintedSquares.
+                    Square squareObj = PaintedSquares[key];
                     squareObj.BackColor = DefaultBackgroundColor;
+                    PaintedSquares.Remove(key);
+                    // Redraw it.
                     Invalidate(squareObj.AreaRectangle);
                 }
-                catch(Exception ex) {
-                    Console.WriteLine("MovePaintedSquares exception: {0}", ex.Message);
-                }
             }
-            // Clear the PaintedSquares dictionary.
-            PaintedSquares = new Dictionary<Point, Square>();
-            
-            /* Now we actually set the BackColor for all the pending squares,
-             * and then redraw the grid. */
-            foreach(KeyValuePair<Square, Color> pair in pendingSquares) {
-                Square squareObj = pair.Key;
-                squareObj.BackColor = pair.Value;
-                PaintedSquares.Add(squareObj.Location, squareObj);
+            /* Now we draw the remaining pending squares.
+             * They are also present in PaintedSquares, but the pendingSquares
+             * dictionary contains their new BackColor value. */
+            foreach(KeyValuePair<Point, Color> pair in pendingSquares) {
+                Point location = pair.Key;
+                int x = location.X, y = location.Y; // For convenience.
+                Color colorValue = pair.Value;
+                Square squareObj = Squares[y / SquareSideLength][x / SquareSideLength];
+                squareObj.BackColor = colorValue;
+                // This might be a newly painted square.
+                // If it is, we have to add it to the PaintedSquares dictionary.
+                if (!PaintedSquares.ContainsKey(location)) {
+                    // Add.
+                    PaintedSquares.Add(location, squareObj);
+                }
+                // Redraw
                 Invalidate(squareObj.AreaRectangle);
             }
         }
