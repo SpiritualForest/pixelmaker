@@ -180,89 +180,64 @@ namespace Gui {
         }
 
         private void MovePaintedSquares(Keys direction) {
-            /* Moves all the squares in the PaintedSquares dictionary
-             * one step in the given direction. */
-            Console.WriteLine("{0} key/value pairs in PaintedSquares.", PaintedSquares.Count);
-            Console.WriteLine("MovePaintedSquares() called with direction: {0}", direction);
-
-            Dictionary<Point, Color> pendingSquares = new Dictionary<Point, Color>();
+            /* This function "moves" all the squares one step in the given direction.
+             * In reality, it doesn't actually move the squares themselves, but rather
+             * paints the adjacent squares with the current squares' background colours.
+             * The adjacent squares are of course based on the direction in which we're moving. */
+            Dictionary<Square, Color> pendingSquares = new Dictionary<Square, Color>();
             foreach(KeyValuePair<Point, Square> pair in PaintedSquares) {
                 Square squareObj = pair.Value;
                 Point location = pair.Key;
-                int x = location.X / SquareSideLength;
-                int y = location.Y / SquareSideLength;
-                /* Now we simply calculate the next x,y Point 
-                 * based on the current square's location.
-                 * We treat this Point as index numbers, rather than pixels. */
-                if (direction == Keys.Right) {
-                    // Right. x+1
-                    x += 1;
-                }
-                else if (direction == Keys.Left) {
-                    // Left. x-1
-                    x -= 1;
-                }
-                else if (direction == Keys.Up) {
-                    // Up. y-1
-                    y -= 1;
-                }
-                else {
-                    // Down. y+1
-                    y += 1;
-                }
-                // Now collision checks. y goes first.
-                if (y >= Squares.Count || y < 0) {
-                    // Collision.
-                    return;
-                }
-                // And now x.
-                if (x >= Squares[0].Count || x < 0) {
-                    // Collision.
-                    return;
-                }
-                // Now we can create a new point and add it to the pendingSquares dictionary.
-                pendingSquares.Add(new Point(x * SquareSideLength, y * SquareSideLength), squareObj.BackColor);
-            }
-            if (pendingSquares.Count == 0) {
-                // No valid indices were added. Abort.
-                return;
-            }
-            // If execution reached here, there are new squares to paint.
-            /* First we check whether there are squares
-             * which are present in both PaintedSquares *and* pendingSquares.
-             * Squares which are NOT present in pendingSquares will be deleted
-             * from PaintedSquares. */
-            List<Point> keys = new List<Point>(PaintedSquares.Keys);
-            foreach(Point key in keys) {
-                int x = key.X;
-                int y = key.Y;
-                if (!pendingSquares.ContainsKey(new Point(x, y))) {
-                    // Not present in both. 
-                    // Set square to default background colour and delete it from PaintedSquares.
-                    Square squareObj = PaintedSquares[key];
+                int xIndex = location.X / SquareSideLength;
+                int yIndex = location.Y / SquareSideLength;
+                /* We perform collision detection using exceptions.
+                 * Since we only have to detect GridBox border collision,
+                 * but not individual square collisions (these can't ever happen, this isn't Tetris),
+                 * then we simply obtain the adjacent square object based on the direction of movement.
+                 * If the next square doesn't exist, because it's out of bounds, then we get an exception
+                 * and everything stops.
+                 *
+                 * Pros: no explicit conditional checks, simpler code, and far better performance in case of no collisions.
+                 * Cons: a huge amount of potentially wasted operations in case an exception DOES occur
+                 * after processing a large amount of squares already. */
+                try {
+                    Square adjacentSquare;
+                    if (direction == Keys.Left) {
+                        // x-1
+                        adjacentSquare = Squares[yIndex][xIndex-1];
+                    }
+                    else if (direction == Keys.Right) {
+                        // x+1
+                        adjacentSquare = Squares[yIndex][xIndex+1];
+                    }
+                    else if (direction == Keys.Up) {
+                        // y-1
+                        adjacentSquare = Squares[yIndex-1][xIndex];
+                    }
+                    else {
+                        // Down. y+1.
+                        adjacentSquare = Squares[yIndex+1][xIndex];
+                    }
+                    // Add the adjacent square to the pendingSquares dictionary,
+                    // and clear out the current square object.
+                    pendingSquares.Add(adjacentSquare, squareObj.BackColor);
                     squareObj.BackColor = DefaultBackgroundColor;
-                    PaintedSquares.Remove(key);
-                    // Redraw it.
                     Invalidate(squareObj.AreaRectangle);
                 }
-            }
-            /* Now we draw the remaining pending squares.
-             * They are also present in PaintedSquares, but the pendingSquares
-             * dictionary contains their new BackColor value. */
-            foreach(KeyValuePair<Point, Color> pair in pendingSquares) {
-                Point location = pair.Key;
-                int x = location.X, y = location.Y; // For convenience.
-                Color colorValue = pair.Value;
-                Square squareObj = Squares[y / SquareSideLength][x / SquareSideLength];
-                squareObj.BackColor = colorValue;
-                // This might be a newly painted square.
-                // If it is, we have to add it to the PaintedSquares dictionary.
-                if (!PaintedSquares.ContainsKey(location)) {
-                    // Add.
-                    PaintedSquares.Add(location, squareObj);
+                catch(Exception ex) {
+                    Console.WriteLine("Could not move squares: {0}", ex.Message);
+                    return;
                 }
-                // Redraw
-                Invalidate(squareObj.AreaRectangle);
+            }
+            // Now clear the grid.
+            PaintedSquares = new Dictionary<Point, Square>();
+            // Now draw the new squares
+            foreach(KeyValuePair<Square, Color> pair in pendingSquares) {
+                Square pendingSquare = pair.Key;
+                Color backColor = pair.Value;
+                pendingSquare.BackColor = backColor;
+                PaintedSquares.Add(pendingSquare.Location, pendingSquare);
+                Invalidate(pendingSquare.AreaRectangle);
             }
         }
     }

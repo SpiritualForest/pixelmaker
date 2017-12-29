@@ -46,8 +46,8 @@ namespace Gui {
                 // Starting at the square found at X,Y, we have to redraw Width*Height squares.
                 int y = clipRectangle.Y / SquareSideLength, x = clipRectangle.X / SquareSideLength; // Index numbers to locate squares
                 int originalX = x;
-                for(int verticalSquares = -1; verticalSquares <= clipRectangle.Height / SquareSideLength; verticalSquares++) {
-                    for(int horizontalSquares = -1; horizontalSquares <= clipRectangle.Width / SquareSideLength; horizontalSquares++) {
+                for(int verticalSquares = 0; verticalSquares <= clipRectangle.Height / SquareSideLength; verticalSquares++) {
+                    for(int horizontalSquares = 0; horizontalSquares <= clipRectangle.Width / SquareSideLength; horizontalSquares++) {
                         try {
                             Square squareObj = Squares[y][x];
                             SolidBrush paintBrush = new SolidBrush(squareObj.BackColor);
@@ -55,7 +55,7 @@ namespace Gui {
                             x++;
                         }
                         catch(ArgumentOutOfRangeException) {
-                            Console.WriteLine("Tried to repaint non existent square as part of the area: {0}", clipRectangle);
+                            Console.WriteLine("Tried to repaint non existent square at Squares[{0}][{1}]", y, x);
                         }
                     }
                     // After each vertical (y axis) completion, x must be set to its original value
