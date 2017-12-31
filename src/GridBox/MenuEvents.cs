@@ -3,6 +3,10 @@
  * It implements the saving and loading of GridBox maps,
  * and the exporting of the GridBox contents into a bitmap image. */
 
+// TODO: Add the grid's DefaultBackgroundColor to SaveMap.
+// TODO: LoadMap() should add any square whose colour is NOT
+// DefaultBackgroundColor to the GridBox's PaintedSquare dictionary.
+
 using System;
 using System.IO; // For BinaryReader and BinaryWriter
 using System.Collections.Generic;
@@ -30,19 +34,17 @@ namespace Gui {
                 // Now we can proceed with reading and loading the file
                 try {
                     using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
-                        if (reader.BaseStream.Length < 13) {
+                        if (reader.BaseStream.Length < (sizeof(int) * 6) + 3) {
                             // Malformed or otherwise erroneus file. Can't even read header.
                             MessageBox.Show("Error. Malformed file. Cannot read header.");
                             return;
                         }
-                        /* The first 13 bytes are the header, in the following order:
+                        /* The first 27 bytes are the header, in the following order:
                         * The string "PXL",
                         * MainWindow width, MainWindow height,
                         * GridBox width, GridBox height,
                         * Square side length.
-                        * Each one is an unsigned int16 type.
-                        * We cast them to an int, because in the program we use int, rather than uint16.
-                        * We only used uint16 to save space on the disk. */
+                        * 4 ARGB bytes representing the GridBox's background colour. */
                         string pxl = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(3));
                         if (pxl != "PXL") {
                             // This is not a valid PixelMaker file.
@@ -50,13 +52,15 @@ namespace Gui {
                             return;
                         }
                         // MainWindow size
-                        int mainWindowWidth = (int)reader.ReadUInt16();
-                        int mainWindowHeight = (int)reader.ReadUInt16();
+                        int mainWindowWidth = reader.ReadInt32();
+                        int mainWindowHeight = reader.ReadInt32();
                         // GridBox size
-                        int gridBoxWidth = (int)reader.ReadUInt16();
-                        int gridBoxHeight = (int)reader.ReadUInt16();
+                        int gridBoxWidth = reader.ReadInt32();
+                        int gridBoxHeight = reader.ReadInt32();
                         // Square side length
-                        int squareSideLength = (int)reader.ReadUInt16();
+                        int squareSideLength = reader.ReadInt32();
+                        // Now read four bytes and set the DefaultBackgroundColor property from ARGB
+                        byte[] argb = reader.ReadBytes(4);
 
                         // Now we make sure everything is fine before going any further.
                         // First we make sure the GridBox size we just read is divisible by the square side length we read.
@@ -82,6 +86,7 @@ namespace Gui {
                         Size gridBoxSize = new Size(gridBoxWidth, gridBoxHeight);
                         this.Size = gridBoxSize;
                         SquareSideLength = squareSideLength;
+                        DefaultBackgroundColor = Color.FromArgb(argb[0], argb[1], argb[2], argb[3]);
 
                         // Now read the colours and form a list of squares.
                         /* FIXME: Must add squares to PaintedSquares! */
@@ -98,6 +103,11 @@ namespace Gui {
                                 byte B = reader.ReadByte();
                                 squareObj.BackColor = Color.FromArgb(A, R, G, B);
                                 sublist.Add(squareObj);
+                                // If the square's BackColor is NOT the same as the DefaultBackgroundColor,
+                                // that means it's a painted square.
+                                if (squareObj.BackColor != DefaultBackgroundColor) {
+                                    PaintedSquares.Add(squareObj.Location, squareObj);
+                                }
                             }
                             squareObjects.Add(sublist);
                         }
@@ -147,21 +157,27 @@ namespace Gui {
              * A, R, G, and B colour values of each square. (byte data type. 1 byte per value, 4 bytes total per square)
              * We do not write the square's position. This will be calculated when loading the map file.
              */
-            UInt16[] headers = new UInt16[] { 
+            int[] headers = new int[] { 
                 // MainWindow size
-                (UInt16)ParentWindow.Width, (UInt16)ParentWindow.Height, 
+                ParentWindow.Width, ParentWindow.Height, 
                 // GridBox size
-                (UInt16)this.Width, (UInt16)this.Height, 
+                this.Width, this.Height, 
                 // Square size
-                (UInt16)this.SquareSideLength,
+                this.SquareSideLength,
             };
             try {
                 using (BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
-                    // Write the headers first. A total of 13 bytes. (a 3 byte "PXL" string, 5 headers, 2 bytes each)
+                    // Write the headers first.
                     writer.Write(System.Text.Encoding.UTF8.GetBytes("PXL"));
-                    foreach(UInt16 header in headers) {
+                    foreach(int header in headers) {
                         writer.Write(header);
                     }
+                    // Now we write the DefaultBackgroundColor's ARGB values.
+                    Color bgColor = DefaultBackgroundColor;
+                    byte[] backgroundArgb = new byte[] { 
+                        bgColor.A, bgColor.R, bgColor.G, bgColor.B
+                    };
+                    writer.Write(backgroundArgb);
                     // Write the squares.
                     foreach(List<Square> sublist in Squares) {
                         foreach(Square squareObj in sublist) {
