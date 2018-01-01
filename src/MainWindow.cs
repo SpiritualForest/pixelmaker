@@ -5,11 +5,6 @@ using System.Drawing;
 using System.Linq;
 using Gui; // For GridBox control
 
-/* TODO:
- * 2. Implement the ability to move the entire drawing around by a given number of square (left, right, down, up)
- * 3. Implement saving and loading of maps.
- */
-
 namespace Gui {
 
     class MainWindow : Form {
@@ -36,11 +31,16 @@ namespace Gui {
             get { return _currentWorkingFile; }
             set {
                 _currentWorkingFile = value;
-                Text = string.Format("PixelMaker v{0} - {1}", Version, value);
+                SetTitle("");
             }
         }
         
         internal string Version { get; set; } // Our version
+
+        internal void SetTitle(string title) {
+            // Sets the Window title.
+            Text = string.Format("PixelMaker v{0} - {1}", Version, title);
+        }
 
         internal MainWindow() {
             // Set Size and center the window
@@ -116,16 +116,12 @@ namespace Gui {
             ToolStripMenuItem helpMenu = new ToolStripMenuItem("Help");
             // Sub menus.
             // File menu first.
-            var loadMap = new ToolStripMenuItem("Load", null, new EventHandler(gridBox.LoadMap));
+            var loadMap = new ToolStripMenuItem("Load", null, (sender, e) => { gridBox.LoadMap(); }); // Load map
             var saveMap = new ToolStripMenuItem("Save", null, (sender, e) => { gridBox.SaveMap(CurrentWorkingFile); }); // Save map
             // We call SaveMap with null to indicate that we want to select a new file to save into.
-            var saveMapAs = new ToolStripMenuItem("Save as", null, (sender, e) => { gridBox.SaveMap(null); });
-            var exportBitmap = new ToolStripMenuItem("Export bitmap", null, new EventHandler(gridBox.ExportBitmap));
-            var exitApp = new ToolStripMenuItem("Exit", null, 
-                    (sender, e) => { 
-                        // TODO: Ask the user if they want to save the file in case the grid was modified and the file isn't saved.
-                        this.Close(); 
-                    }); // Exit app
+            var saveMapAs = new ToolStripMenuItem("Save as", null, (sender, e) => { gridBox.SaveMap(null); }); // Save map as
+            var exportBitmap = new ToolStripMenuItem("Export bitmap", null, (sender, e) => { gridBox.ExportBitmap(); }); // Export map into bitmap image
+            var exitApp = new ToolStripMenuItem("Exit", null, (sender, e) => { ExitApplication(); }); // Exit app
             ToolStripMenuItem[] items = new ToolStripMenuItem[] { loadMap, saveMap, saveMapAs, exportBitmap, exitApp };
             fileMenu.DropDownItems.AddRange(items);
             MainMenuStrip.Items.Add(fileMenu);
@@ -194,6 +190,23 @@ namespace Gui {
 
         internal GridBox GetGridBox() {
             return (GridBox)this.Controls.Find("gridbox", true).FirstOrDefault();
+        }
+
+        internal void ExitApplication() {
+            GridBox gridBox = GetGridBox();
+            if (gridBox.GridModified) {
+                // Grid was modified. Save changes?
+                DialogResult saveChanges = MessageBox.Show("Save changes?", "Save Changes", MessageBoxButtons.YesNoCancel);
+                if (saveChanges == DialogResult.Yes) {
+                    gridBox.SaveMap(CurrentWorkingFile);
+                }
+                else if (saveChanges == DialogResult.Cancel) {
+                    // Do not quit.
+                    return;
+                }
+            }
+            // Actually close the form.
+            Close();
         }
     } // END OF MAINWINDOW CLASS
 } // END OF GUI NAMESPACE
