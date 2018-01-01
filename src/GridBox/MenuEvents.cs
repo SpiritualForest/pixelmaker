@@ -3,10 +3,6 @@
  * It implements the saving and loading of GridBox maps,
  * and the exporting of the GridBox contents into a bitmap image. */
 
-// TODO: Add the grid's DefaultBackgroundColor to SaveMap.
-// TODO: LoadMap() should add any square whose colour is NOT
-// DefaultBackgroundColor to the GridBox's PaintedSquare dictionary.
-
 using System;
 using System.IO; // For BinaryReader and BinaryWriter
 using System.Collections.Generic;
@@ -21,7 +17,7 @@ namespace Gui {
         private SaveFileDialog saveFileDialog = new SaveFileDialog();
         private OpenFileDialog openFileDialog = new OpenFileDialog();
 
-        internal void LoadMap(object sender, EventArgs e) {
+        internal void LoadMap() {
             /* Loads a map file into the grid. */
             openFileDialog.InitialDirectory = Environment.CurrentDirectory;
             openFileDialog.RestoreDirectory = false;
@@ -32,6 +28,21 @@ namespace Gui {
                 ParentWindow.CurrentWorkingFile = fileName;
                 
                 // Now we can proceed with reading and loading the file
+                // We declare all our variables here, because we don't want to limit their scope
+                // to the try/catch block. Permanent modification to the state of the GridBox
+                // should only be made once we've processed the entire file and are absolutely certain
+                // that no errors have occurred.
+                // Therefore, we must declare these variables outside the try/catch scope, so that we can
+                // use them after the file has been completely read.
+                int mainWindowWidth, mainWindowHeight;
+                int gridBoxWidth, gridBoxHeight;
+                int squareSideLength;
+                Color backgroundColor;
+                byte[] argb;
+                List<List<Square>> tempSquareObjects = new List<List<Square>>();
+                Dictionary<Point, Square> tempPaintedSquares = new Dictionary<Point, Square>();
+
+                // Proceed with the actual reading.
                 try {
                     using (BinaryReader reader = new BinaryReader(File.Open(fileName, FileMode.Open))) {
                         if (reader.BaseStream.Length < (sizeof(int) * 6) + 3) {
@@ -52,15 +63,15 @@ namespace Gui {
                             return;
                         }
                         // MainWindow size
-                        int mainWindowWidth = reader.ReadInt32();
-                        int mainWindowHeight = reader.ReadInt32();
+                        mainWindowWidth = reader.ReadInt32();
+                        mainWindowHeight = reader.ReadInt32();
                         // GridBox size
-                        int gridBoxWidth = reader.ReadInt32();
-                        int gridBoxHeight = reader.ReadInt32();
+                        gridBoxWidth = reader.ReadInt32();
+                        gridBoxHeight = reader.ReadInt32();
                         // Square side length
-                        int squareSideLength = reader.ReadInt32();
+                        squareSideLength = reader.ReadInt32();
                         // Now read four bytes and set the DefaultBackgroundColor property from ARGB
-                        byte[] argb = reader.ReadBytes(4);
+                        argb = reader.ReadBytes(4);
 
                         // Now we make sure everything is fine before going any further.
                         // First we make sure the GridBox size we just read is divisible by the square side length we read.
@@ -80,17 +91,9 @@ namespace Gui {
                             return;
                         }
                         // Checks passed. We can proceed.
-                        // Set the window, gridbox, and square sizes
-                        Size mainWindowSize = new Size(mainWindowWidth, mainWindowHeight);
-                        ParentWindow.Size = mainWindowSize;
-                        Size gridBoxSize = new Size(gridBoxWidth, gridBoxHeight);
-                        this.Size = gridBoxSize;
-                        SquareSideLength = squareSideLength;
-                        DefaultBackgroundColor = Color.FromArgb(argb[0], argb[1], argb[2], argb[3]);
+                        backgroundColor = Color.FromArgb(argb[0], argb[1], argb[2], argb[3]);
 
                         // Now read the colours and form a list of squares.
-                        /* FIXME: Must add squares to PaintedSquares! */
-                        List<List<Square>> squareObjects = new List<List<Square>>();
                         for(int y = 0; y < gridBoxHeight; y += squareSideLength) {
                             List<Square> sublist = new List<Square>();
                             for(int x = 0; x < gridBoxWidth; x += squareSideLength) {
@@ -105,24 +108,30 @@ namespace Gui {
                                 sublist.Add(squareObj);
                                 // If the square's BackColor is NOT the same as the DefaultBackgroundColor,
                                 // that means it's a painted square.
-                                if (squareObj.BackColor != DefaultBackgroundColor) {
-                                    PaintedSquares.Add(squareObj.Location, squareObj);
+                                if (squareObj.BackColor != backgroundColor) {
+                                    tempPaintedSquares.Add(squareObj.Location, squareObj);
                                 }
                             }
-                            squareObjects.Add(sublist);
+                            tempSquareObjects.Add(sublist);
                         }
-                        Squares = squareObjects;
-                        // Redraw the grid.
-                        Invalidate();
-                        
-                        // Set the currently open (working) file.
-                        ParentWindow.CurrentWorkingFile = fileName;
-                        Console.WriteLine("Loaded map file: {0}", fileName);
                     }
                 }
                 catch(Exception ex) {
+                    // Some error occurred. Inform the user and abort operation.
                     MessageBox.Show(string.Format("Could not open file: {0}", ex.Message));
+                    return;
                 }
+                // If execution reached here, it is safe to permanently modify the GridBox properties.
+                Size mainWindowSize = new Size(mainWindowWidth, mainWindowHeight);
+                Size gridBoxSize = new Size(gridBoxWidth, gridBoxHeight);
+                ParentWindow.Size = mainWindowSize;
+                this.Size = gridBoxSize;
+                SquareSideLength = squareSideLength;
+                DefaultBackgroundColor = backgroundColor;
+                Squares = tempSquareObjects;
+                PaintedSquares = tempPaintedSquares;
+                ParentWindow.CurrentWorkingFile = fileName;
+                Console.WriteLine("Loaded mmap file: {0}", fileName);
             }
         }
 
@@ -197,7 +206,7 @@ namespace Gui {
             }
         }
 
-        internal void ExportBitmap(object sender, EventArgs e) {
+        internal void ExportBitmap() {
             /* Exports the map as a bitmap image */
             SaveFileDialog saveFileDialog = new SaveFileDialog();
             saveFileDialog.Filter = "Bitmap images (*.bmp)|*.bmp";
@@ -212,7 +221,6 @@ namespace Gui {
             string fileName = saveFileDialog.FileName;
             
             // First we create all the pixel data.
-            // TODO: Dialog box with progress bar that shows the file creating progress.
             
             Console.WriteLine("Preparing pixel data...");
 
@@ -243,6 +251,7 @@ namespace Gui {
             }
 
             // Pixel data creation complete. Now we actually write it to the file.
+            Console.WriteLine("Writing bitmap file...");
             try {
                 using(BinaryWriter writer = new BinaryWriter(File.Open(fileName, FileMode.Create))) {
                     /* Write BMP headers */

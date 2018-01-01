@@ -65,6 +65,8 @@ namespace Gui {
                 // Right click will reset the square's colour back to the background colour of the grid
                 squareObj.OnRightMouseClick();
             }
+            // The grid was modified. Set GridModified to true. This is required for "Do you want to save changes?" on exit.
+            GridModified = true;
         }
 
         protected override void OnMouseLeave(EventArgs e) {
@@ -104,6 +106,7 @@ namespace Gui {
                 squareObj.BackColor = this.DefaultBackgroundColor;
                 RightMouseDown = true;
             }
+            GridModified = true;
         }
 
         protected override void OnMouseUp(MouseEventArgs e) {

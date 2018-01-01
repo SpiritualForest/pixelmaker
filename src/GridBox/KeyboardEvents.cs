@@ -20,8 +20,7 @@ namespace Gui {
         }
 
         protected override void OnKeyDown(KeyEventArgs e) {
-            /* We only handle the arrow keys in this function for now.
-             * Other input keys will be handled by the OnKeyPress() method. */
+            /* This function handles the arrow and modifier keys. */
             switch(e.KeyCode) {
                 // Arrow keys first
                 case Keys.Up:
@@ -44,11 +43,43 @@ namespace Gui {
         }
 
         protected override void OnKeyUp(KeyEventArgs e) {
-            Console.WriteLine("Key up: {0}", e.KeyCode);
-        }
+            // First modifier keys.
+            switch(e.KeyCode) {
+                case Keys.ControlKey:
+                    ControlKeyDown = false;
+                    break;
+                case Keys.ShiftKey:
+                    ShiftKeyDown = false;
+                    break;
+            }
 
-        protected override void OnKeyPress(KeyPressEventArgs e) {
-            Console.WriteLine(e.KeyChar);
+            // Now we handle the relevant letter keys that are paired with the modifiers.
+            if (ControlKeyDown) {
+                // Control+Letter shortcuts
+                switch(e.KeyCode) {
+                    case Keys.S:
+                        // Quick save
+                        SaveMap(ParentWindow.CurrentWorkingFile);
+                        break;
+                    case Keys.L:
+                        // Quick load
+                        LoadMap();
+                        break;
+                    case Keys.Q:
+                        // Exit application.
+                        ParentWindow.ExitApplication();
+                        break;
+                    case Keys.E:
+                        // Export bitmap
+                        ExportBitmap();
+                        break;
+                    case Keys.Z:
+                        // Undo previous actions
+                        // TODO.
+                        Console.WriteLine("Ctrl-Z");
+                        break;
+                }
+            }
         }
     }
 }

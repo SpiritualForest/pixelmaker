@@ -31,6 +31,8 @@ namespace Gui {
         // The default background colour to which a square should be reset if not set to SelectedColor, or deleted by a right mouse click.
         // I didn't use the built in BackColor property because that causes the intermittent lines between the squares to disappear.
         internal Color DefaultBackgroundColor { get; set; }
+        
+        internal bool GridModified { get; set; }
 
         internal int SquareSideLength {
             // The length of a square's side (or edge) in pixels.
