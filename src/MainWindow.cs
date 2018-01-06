@@ -31,7 +31,7 @@ namespace Gui {
             get { return _currentWorkingFile; }
             set {
                 _currentWorkingFile = value;
-                SetTitle("");
+                SetTitle(value);
             }
         }
         
@@ -116,12 +116,12 @@ namespace Gui {
             ToolStripMenuItem helpMenu = new ToolStripMenuItem("Help");
             // Sub menus.
             // File menu first.
-            var loadMap = new ToolStripMenuItem("Load", null, (sender, e) => { gridBox.LoadMap(); }); // Load map
-            var saveMap = new ToolStripMenuItem("Save", null, (sender, e) => { gridBox.SaveMap(CurrentWorkingFile); }); // Save map
+            var loadMap = new ToolStripMenuItem("&Load", null, (sender, e) => { gridBox.LoadMap(); }); // Load map
+            var saveMap = new ToolStripMenuItem("&Save", null, (sender, e) => { gridBox.SaveMap(CurrentWorkingFile); }); // Save map
             // We call SaveMap with null to indicate that we want to select a new file to save into.
-            var saveMapAs = new ToolStripMenuItem("Save as", null, (sender, e) => { gridBox.SaveMap(null); }); // Save map as
-            var exportBitmap = new ToolStripMenuItem("Export bitmap", null, (sender, e) => { gridBox.ExportBitmap(); }); // Export map into bitmap image
-            var exitApp = new ToolStripMenuItem("Exit", null, (sender, e) => { ExitApplication(); }); // Exit app
+            var saveMapAs = new ToolStripMenuItem("&Save as", null, (sender, e) => { gridBox.SaveMap(null); }); // Save map as
+            var exportBitmap = new ToolStripMenuItem("&Export bitmap", null, (sender, e) => { gridBox.ExportBitmap(); });
+            var exitApp = new ToolStripMenuItem("&Quit", null, (sender, e) => { ExitApplication(); }); // Exit app
             ToolStripMenuItem[] items = new ToolStripMenuItem[] { loadMap, saveMap, saveMapAs, exportBitmap, exitApp };
             fileMenu.DropDownItems.AddRange(items);
             MainMenuStrip.Items.Add(fileMenu);
