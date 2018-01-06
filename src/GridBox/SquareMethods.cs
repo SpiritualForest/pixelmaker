@@ -180,6 +180,7 @@ namespace Gui {
         }
 
         private void MovePaintedSquares(Keys direction) {
+            // FIXME: Handle errors properly.
             /* This function "moves" all the squares one step in the given direction.
              * In reality, it doesn't actually move the squares themselves, but rather
              * paints the adjacent squares with the current squares' background colours.
@@ -219,10 +220,7 @@ namespace Gui {
                         adjacentSquare = Squares[yIndex+1][xIndex];
                     }
                     // Add the adjacent square to the pendingSquares dictionary,
-                    // and clear out the current square object.
                     pendingSquares.Add(adjacentSquare, squareObj.BackColor);
-                    squareObj.BackColor = DefaultBackgroundColor;
-                    Invalidate(squareObj.AreaRectangle);
                 }
                 catch(Exception ex) {
                     Console.WriteLine("Could not move squares: {0}", ex.Message);
@@ -230,6 +228,13 @@ namespace Gui {
                 }
             }
             // Now clear the grid.
+            foreach(KeyValuePair<Point, Square> pair in PaintedSquares) {
+                // We reset all the currently painted squares' BackColor
+                // to the default background colour.
+                Square squareObj = pair.Value;
+                squareObj.BackColor = DefaultBackgroundColor;
+                Invalidate(squareObj.AreaRectangle);
+            }
             PaintedSquares = new Dictionary<Point, Square>();
             // Now draw the new squares
             foreach(KeyValuePair<Square, Color> pair in pendingSquares) {

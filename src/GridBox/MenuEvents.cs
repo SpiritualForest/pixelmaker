@@ -131,7 +131,7 @@ namespace Gui {
                 Squares = tempSquareObjects;
                 PaintedSquares = tempPaintedSquares;
                 ParentWindow.CurrentWorkingFile = fileName;
-                Console.WriteLine("Loaded mmap file: {0}", fileName);
+                Console.WriteLine("Loaded map file: {0}", fileName);
             }
         }
 
@@ -200,6 +200,7 @@ namespace Gui {
                 }
                 Console.WriteLine("Saved map file: {0}", fileName);
                 ParentWindow.CurrentWorkingFile = fileName;
+                GridModified = false; // Saving progress means that the GridBox is no longer modified.
             }
             catch(Exception ex) {
                 MessageBox.Show(string.Format("Cannot save file: {0}", ex.Message));

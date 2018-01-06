@@ -54,7 +54,7 @@ namespace Gui {
             }
 
             // Now we handle the relevant letter keys that are paired with the modifiers.
-            if (ControlKeyDown) {
+            if (ControlKeyDown && !ShiftKeyDown) {
                 // Control+Letter shortcuts
                 switch(e.KeyCode) {
                     case Keys.S:
@@ -77,6 +77,15 @@ namespace Gui {
                         // Undo previous actions
                         // TODO.
                         Console.WriteLine("Ctrl-Z");
+                        break;
+                }
+            }
+            else if (ControlKeyDown && ShiftKeyDown) {
+                // Control + Shift + Letter shortcuts.
+                switch(e.KeyCode) {
+                    case Keys.S:
+                        // Quick save as.
+                        SaveMap(null);
                         break;
                 }
             }
