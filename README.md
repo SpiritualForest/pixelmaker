@@ -1,4 +1,7 @@
-## The program is under heavy development.
+# DEVELOPMENT HALTED.
+
+## After the application repeatedly became unresponsive on Windows when built with the Microsoft C# compiler, and
+## since Windows Forms are essentially considered dead by now, and Mono will not support WPF, I decided to halt development.
 
 #### Compilation instructions:
 ##### mcs \*.cs GridBox/\*.cs -r:System.Windows.Forms.dll -r:System.Drawing.dll /out:pixelmaker.exe,
@@ -8,3 +11,4 @@
 
 ##### Left mouse button paints a square.
 ##### Right mouse button "deletes" a square (resets its colour to the background colour).
+##### Arrow buttons move the whole painting around (slow, very buggy, beware).

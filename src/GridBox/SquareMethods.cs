@@ -244,6 +244,8 @@ namespace Gui {
                 PaintedSquares.Add(pendingSquare.Location, pendingSquare);
                 Invalidate(pendingSquare.AreaRectangle);
             }
+            // Set the GridBox's state to modified, because we changed it :)
+            GridModified = true;
         }
     }
 }
