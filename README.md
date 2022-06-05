@@ -1,4 +1,4 @@
-#### PixelMaker is a program that allows the user to draw images made out of squares ("big pixels") and exoport those drawings into a bitmap image.
+#### PixelMaker is a program that allows the user to draw images made out of squares ("big pixels") and export those drawings into a bitmap image.
 
 #### Compilation instructions:
 ##### mcs \*.cs GridBox/\*.cs -r:System.Windows.Forms.dll -r:System.Drawing.dll /out:pixelmaker.exe,
