@@ -233,7 +233,6 @@ namespace Gui {
                 // to the default background colour.
                 Square squareObj = pair.Value;
                 squareObj.BackColor = DefaultBackgroundColor;
-                Invalidate(squareObj.AreaRectangle);
             }
             PaintedSquares = new Dictionary<Point, Square>();
             // Now draw the new squares
@@ -242,8 +241,9 @@ namespace Gui {
                 Color backColor = pair.Value;
                 pendingSquare.BackColor = backColor;
                 PaintedSquares.Add(pendingSquare.Location, pendingSquare);
-                Invalidate(pendingSquare.AreaRectangle);
             }
+            // Call Invalidate() to redraw the entire grid
+            Invalidate();
             // Set the GridBox's state to modified, because we changed it :)
             GridModified = true;
         }
